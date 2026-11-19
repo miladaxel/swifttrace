@@ -18,7 +18,7 @@ class IBANValidatorService:
         'MC': 27, 'MD': 24, 'ME': 22, 'NL': 18, 'NO': 15, 'PK': 24, 'PS': 29,
         'PL': 28, 'PT': 25, 'QA': 29, 'RO': 24, 'SM': 27, 'SA': 24, 'RS': 22,
         'SK': 24, 'SI': 19, 'ES': 24, 'SE': 24, 'CH': 21, 'TN': 24, 'TR': 26,
-        'AE': 23, 'GB': 22, 'VG': 24, 'QA': 29
+        'AE': 23, 'GB': 22, 'VG': 24
     }
 
     COUNTRY_NAMES = {
