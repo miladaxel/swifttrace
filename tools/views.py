@@ -121,7 +121,11 @@ def api_screen_sanctions(request):
             data = request.POST
         
         query = data.get('query', '')
-        threshold = float(data.get('threshold', 0.65))
+        try:
+            threshold = float(data.get('threshold', 0.65))
+        except (ValueError, TypeError):
+            threshold = 0.65
+        threshold = max(0.0, min(1.0, threshold))
         result = SanctionsScreenerService.screen(query, threshold)
         return JsonResponse(result)
 
