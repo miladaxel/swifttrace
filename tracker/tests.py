@@ -529,3 +529,24 @@ class PublicSearchPrivacyTests(TestCase):
         self.assertEqual(get_client_ip(request), '203.0.113.9')
         request.META['REMOTE_ADDR'] = '198.51.100.10'
         self.assertEqual(get_client_ip(request), '198.51.100.10')
+
+    def test_parse_mt103_api_file_upload_and_size_limit(self):
+        client = Client()
+        url = reverse('tracker:parse_mt103_api')
+
+        # 1. Valid small document upload
+        valid_content = b"{1:F01TEST}{4:\n:20:REF-123\n-}"
+        small_file = SimpleUploadedFile('mt103.txt', valid_content, content_type='text/plain')
+        response = client.post(url, {'document': small_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['success'])
+        self.assertEqual(response.json()['data']['reference_number'], 'REF-123')
+
+        # 2. Oversized file upload (> 2MB)
+        oversized_content = b'x' * (2 * 1024 * 1024 + 1)
+        large_file = SimpleUploadedFile('large.txt', oversized_content, content_type='text/plain')
+        response_oversized = client.post(url, {'document': large_file})
+        self.assertEqual(response_oversized.status_code, 400)
+        self.assertFalse(response_oversized.json()['success'])
+        self.assertIn('2 MB or smaller', response_oversized.json()['error'])
+

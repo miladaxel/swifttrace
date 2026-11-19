@@ -101,6 +101,8 @@ def parse_mt103_api(request):
         # Handle uploaded file if present
         if request.FILES.get('document'):
             uploaded_file = request.FILES['document']
+            if uploaded_file.size > 2 * 1024 * 1024:
+                return JsonResponse({'success': False, 'error': 'Uploaded file must be 2 MB or smaller.'}, status=400)
             try:
                 raw_text = uploaded_file.read().decode('utf-8', errors='ignore')
             except Exception as e:
