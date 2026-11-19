@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}MT103 Text Field Extractor | Wire Records{% endblock %}
+
+{% block content %}
+<div class="py-12 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-10">
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">MT103 Text Field Extractor</h1>
+        <p class="text-sm text-slate-500 mt-2">Extract selected fields from pasted MT103 text. This does not authenticate a bank message, verify payment, or parse PDF and pacs.008 files.</p>
+    </div>
+
+    <!-- Validator Card -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm mb-8 relative">
+        <div class="absolute top-0 left-8 right-8 h-1 bg-orange-500 rounded-t-2xl"></div>
+
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Paste MT103 text</label>
+                <button type="button" onclick="loadSampleDoc()" class="text-xs text-orange-600 font-bold hover:underline">
+                    Load Sample MT103
+                </button>
+            </div>
+
+            <textarea 
+                id="docInput" 
+                rows="8" 
+                placeholder="Paste raw SWIFT message text (e.g. {1:F01...}{2:...}{4::20:REF12345...:32A:241117USD125000,00...})" 
+                class="w-full font-mono text-xs p-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800"
+            ></textarea>
+
+            <button type="button" onclick="validateDoc()" id="btnValidate" class="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow transition flex items-center justify-center gap-2 text-xs">
+                <i class="fa-solid fa-code"></i>
+                <span>Extract Fields</span>
+            </button>
+        </div>
+
+        <!-- Result Container -->
+        <div id="docResult" class="mt-8 pt-6 border-t border-slate-100 hidden">
+            <h3 class="font-bold text-slate-900 text-sm mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                Extracted Payment Parameters
+            </h3>
+
+            <div class="grid grid-cols-2 gap-3 text-xs mb-4">
+                <div class="p-3 bg-slate-50 rounded-xl">
+                    <span class="text-slate-400 block font-semibold">UETR (Tag 121):</span>
+                    <span id="res-uetr" class="font-mono font-bold text-slate-900 text-xs"></span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                    <span class="text-slate-400 block font-semibold">Reference (Tag 20):</span>
+                    <span id="res-ref" class="font-mono font-bold text-slate-900 text-xs"></span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                    <span class="text-slate-400 block font-semibold">Amount & Currency:</span>
+                    <span id="res-amt" class="font-bold text-slate-900 text-sm"></span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                    <span class="text-slate-400 block font-semibold">Value Date (Tag 32A):</span>
+                    <span id="res-date" class="font-bold text-slate-900 text-sm"></span>
+                </div>
+            </div>
+
+            <div class="p-3 bg-slate-50 rounded-xl text-xs mb-4">
+                <span class="text-slate-400 block font-semibold">Ordering Customer (Tag 50K):</span>
+                <span id="res-sender" class="font-bold text-slate-800"></span>
+            </div>
+
+            <div class="p-3 bg-slate-50 rounded-xl text-xs mb-4">
+                <span class="text-slate-400 block font-semibold">Beneficiary Customer (Tag 59):</span>
+                <span id="res-beneficiary" class="font-bold text-slate-800"></span>
+            </div>
+
+            <a id="linkTrack" href="#" class="w-full py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-center text-xs block transition">
+                Search Published Records &rarr;
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function loadSampleDoc() {
+        document.getElementById('docInput').value = `{1:F01SVBLUS6SAXXX0000000000}{2:I103EBILAEADXXXXN}{3:{108:MT103}{121:c2b9a762-b91b-4df2-8e77-508b981f4f5a}}{4:
+:20:SWIFT-USD-88910
+:23B:CRED
+:32A:261117USD125000,00
+:50K:/US89SVBL9876543210
+ALPHA GLOBAL TRADING LLC
+SAN FRANCISCO, USA
+:57A:EBILAEAD
+:59:/AE070331234567890123456
+PRIME HORIZON GENERAL TRADING FZ-LLC
+DUBAI, UAE
+:71A:SHA
+-}`;
+    }
+
+    async function validateDoc() {
+        const text = document.getElementById('docInput').value;
+        if (!text.trim()) {
+            alert('Please paste a SWIFT message or click Load Sample MT103 first.');
+            return;
+        }
+
+        const btn = document.getElementById('btnValidate');
+        btn.disabled = true;
+        btn.textContent = 'Parsing...';
+
+        try {
+            const resp = await fetch("{% url 'tracker:parse_mt103_api' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({raw_text: text})
+            });
+            const res = await resp.json();
+
+            if (res.success && res.data) {
+                const d = res.data;
+                document.getElementById('res-uetr').textContent = d.uetr || 'Not present';
+                document.getElementById('res-ref').textContent = d.reference_number || 'N/A';
+                document.getElementById('res-amt').textContent = (d.currency || '') + ' ' + (d.amount ? d.amount.toLocaleString() : 'N/A');
+                document.getElementById('res-date').textContent = d.date_of_payment || 'N/A';
+                document.getElementById('res-sender').textContent = (d.sender_name || 'N/A') + (d.sender_account ? ' (' + d.sender_account + ')' : '');
+                document.getElementById('res-beneficiary').textContent = (d.beneficiary_name || 'N/A') + (d.beneficiary_account ? ' (' + d.beneficiary_account + ')' : '');
+
+                if (d.uetr) {
+                    document.getElementById('linkTrack').href = "{% url 'tracker:wire_transfer' %}";
+                    document.getElementById('linkTrack').classList.remove('hidden');
+                } else {
+                    document.getElementById('linkTrack').classList.add('hidden');
+                }
+
+                document.getElementById('docResult').classList.remove('hidden');
+            } else {
+                alert(res.error || 'Failed to parse message.');
+            }
+        } catch(e) {
+            alert('Error connecting to server.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Extract Fields';
+        }
+    }
+</script>
+{% endblock %}

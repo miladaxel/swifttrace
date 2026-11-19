@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Sample Currency Corridors | Wire Records{% endblock %}
+
+{% block content %}
+<section class="max-w-4xl mx-auto px-4 py-12">
+    <div class="text-center mb-10">
+        <h1 class="text-3xl font-extrabold text-slate-900">Sample Currency Corridors</h1>
+        <p class="text-sm text-slate-600 mt-3">Explore examples of clearing systems by currency. This page does not contain current correspondent bank routes or settlement instructions.</p>
+    </div>
+    <div class="flex flex-wrap justify-center gap-2 mb-8">
+        {% for code, data in corridors.items %}
+        <a href="?currency={{ code }}" class="px-5 py-2.5 rounded-xl font-bold text-xs {% if selected_currency == code %}bg-orange-500 text-white{% else %}bg-white text-slate-600 border border-slate-200{% endif %}">{{ data.name }}</a>
+        {% endfor %}
+    </div>
+    <div class="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+        <h2 class="text-xl font-bold text-slate-900">{{ info.name }}</h2>
+        <dl class="mt-6 grid gap-5 sm:grid-cols-2 text-sm">
+            <div class="bg-slate-50 rounded-xl p-5"><dt class="font-bold text-slate-700">Example clearing systems</dt><dd class="mt-2 text-slate-600">{{ info.example_systems }}</dd></div>
+            <div class="bg-slate-50 rounded-xl p-5"><dt class="font-bold text-slate-700">Illustrative timing</dt><dd class="mt-2 text-slate-600">{{ info.example_timing }}</dd></div>
+        </dl>
+        <p class="mt-6 text-xs text-slate-500">The actual bank route, cutoff, fee and delivery time depend on the payment. Ask the sending or receiving bank for current instructions.</p>
+    </div>
+</section>
+{% endblock %}

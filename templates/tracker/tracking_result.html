@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment Record | Wire Records{% endblock %}
+
+{% block content %}
+<div class="py-10 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+
+    <!-- Top Bar Navigation -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="{% url 'tracker:wire_transfer' %}" class="inline-flex items-center text-sm font-semibold text-orange-600 hover:text-orange-700 transition gap-2">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Search Another Record</span>
+        </a>
+        <div class="flex items-center space-x-3">
+            {% if can_view_full %}
+            <a href="{% url 'dashboard:index' %}" class="px-3 py-1.5 bg-slate-800 text-white hover:bg-slate-900 text-xs font-semibold rounded-lg shadow-sm flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-table-columns"></i>
+                <span>Dashboard</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main Payment Summary Banner -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8 mb-8 relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1.5 bg-orange-500"></div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-mono font-bold px-2.5 py-1 bg-slate-100 text-slate-600 rounded">
+                        {% if transfer.uetr %}UETR: {{ transfer.uetr }}{% else %}Reference-only record{% endif %}
+                    </span>
+                    {% if transfer.reference_number %}
+                    <span class="text-xs font-mono font-semibold px-2 py-0.5 bg-orange-50 text-orange-700 rounded border border-orange-200">
+                        REF: {{ transfer.reference_number }}
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+                    {{ transfer.currency }} {{ transfer.amount|floatformat:2 }}
+                </div>
+                <div class="text-sm text-slate-500 mt-1">
+                    Initiated on {{ transfer.date_of_payment }} &bull; Charge Model: <span class="font-semibold text-slate-700">{{ transfer.get_charge_type_display }}</span>
+                </div>
+            </div>
+
+            <!-- Status Indicator -->
+            <div class="flex flex-col md:items-end">
+                <div class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold gap-2 
+                    {% if transfer.status == 'ACCC' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                    {% elif transfer.status == 'ACSP' %}bg-amber-50 text-amber-700 border border-amber-200
+                    {% elif transfer.status == 'HOLD' %}bg-purple-50 text-purple-700 border border-purple-200
+                    {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+                    <span class="w-2.5 h-2.5 rounded-full 
+                        {% if transfer.status == 'ACCC' %}bg-emerald-500
+                        {% elif transfer.status == 'ACSP' %}bg-amber-500 animate-pulse
+                        {% elif transfer.status == 'HOLD' %}bg-purple-500
+                        {% else %}bg-red-500{% endif %}"></span>
+                    <span>{{ transfer.get_status_display }}</span>
+                </div>
+                {% if transfer.status_observed_at %}
+                <div class="text-xs text-slate-500 mt-2 font-medium">
+                    Status recorded as of <span class="text-slate-800 font-bold">{{ transfer.status_observed_at|date:"M d, Y - H:i" }} UTC</span>
+                </div>
+                {% endif %}
+                <a href="{% url 'tracker:wire_transfer' %}#status-guide-heading" class="mt-2 text-xs font-semibold text-orange-700 underline">What do these statuses mean?</a>
+                {% if transfer.eta_delivery %}
+                <div class="text-xs text-slate-500 mt-2 font-medium">
+                    Delivery estimate entered by our team: <span class="text-slate-800 font-bold">{{ transfer.eta_delivery|date:"M d, Y - H:i" }} UTC</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if can_view_full and transfer.status_reason %}
+        <div class="mt-6 pt-4 border-t border-slate-100 flex items-start gap-2.5 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl">
+            <i class="fa-solid fa-circle-info text-orange-500 mt-0.5"></i>
+            <div>
+                <span class="font-bold text-slate-800">Status Reason: </span>
+                {{ transfer.status_reason }}
+            </div>
+        </div>
+        {% endif %}
+        <div class="mt-4 text-xs text-slate-500">
+            {% if transfer.source_type %}Information source: {{ transfer.get_source_type_display }} &bull; {% endif %}
+            Record last edited {{ transfer.updated_at|date:"M d, Y - H:i" }} UTC
+        </div>
+    </div>
+
+    {% if transfer.status_history.exists %}
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8" aria-labelledby="status-history-heading">
+        <h2 id="status-history-heading" class="text-sm font-bold text-slate-900 mb-4">Recorded status updates</h2>
+        <ol class="space-y-3">
+            {% for entry in transfer.status_history.all %}
+            <li class="flex flex-col sm:flex-row sm:justify-between gap-1 border-l-2 border-orange-300 pl-3 text-xs">
+                <span class="font-semibold text-slate-800">{{ entry.get_status_display }}</span>
+                <span class="text-slate-500">
+                    {% if entry.status_observed_at %}As of {{ entry.status_observed_at|date:"M d, Y - H:i" }} UTC{% else %}Recorded {{ entry.changed_at|date:"M d, Y - H:i" }} UTC{% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ol>
+    </section>
+    {% endif %}
+
+    <!-- Grid: Journey Timeline & Financial Details -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Correspondent Banking Journey Timeline (2 Columns) -->
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+            <div class="flex items-center justify-between mb-6 pb-3 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-route text-orange-500"></i>
+                    Recorded Payment Stages
+                </h3>
+                <span class="text-xs bg-orange-100 text-orange-800 font-bold px-2 py-1 rounded">
+                    {{ transfer.steps.count }} Stages Recorded
+                </span>
+            </div>
+
+            <!-- Steps List -->
+            <div class="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+                {% for step in transfer.steps.all %}
+                <div class="relative group">
+                    <!-- Dot Marker -->
+                    <div class="absolute -left-6 top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm flex items-center justify-center 
+                        {% if step.status_code == 'ACCC' %}bg-emerald-500
+                        {% elif step.status_code == 'ACSP' %}bg-orange-500 ring-4 ring-orange-100
+                        {% else %}bg-slate-400{% endif %}">
+                    </div>
+
+                    <!-- Step Card -->
+                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 hover:border-orange-300 transition">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+                            <div class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                <span>{{ step.bank_name }}</span>
+                                <span class="font-mono text-xs px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-600">{{ step.bank_bic }}</span>
+                            </div>
+                            <span class="text-[11px] font-semibold text-slate-400">
+                                {{ step.timestamp|date:"M d, H:i" }} UTC
+                            </span>
+                        </div>
+
+                        <div class="text-xs text-orange-600 font-semibold mb-2">
+                            {{ step.role }} &bull; {{ step.location }}
+                        </div>
+
+                        {% if can_view_full and step.details %}
+                        <p class="text-xs text-slate-600 mb-2 leading-relaxed">{{ step.details }}</p>
+                        {% endif %}
+
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 text-[11px]">
+                            <span class="font-bold text-slate-700 flex items-center gap-1">
+                                <i class="fa-solid fa-circle-info text-slate-400"></i>
+                                {{ step.status_label }}
+                            </span>
+                            {% if step.fee_deducted > 0 %}
+                            <span class="text-red-600 font-semibold">
+                                -{{ transfer.currency }} {{ step.fee_deducted|floatformat:2 }} fee recorded
+                            </span>
+                            {% else %}
+                            <span class="text-slate-400">No fee recorded</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-sm text-slate-500 py-4">No payment stages have been entered for this record.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Sidebar: Parties & Settlement Summary (1 Column) -->
+        <div class="space-y-6">
+            <!-- Parties Info -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Counterparties</h4>
+                
+                <!-- Sender -->
+                <div class="mb-5 pb-5 border-b border-slate-100">
+                    <div class="text-[11px] text-slate-400 uppercase font-semibold">Ordering Customer (Sender)</div>
+                    <div class="font-bold text-slate-900 text-sm mt-0.5">{{ transfer.sender_name|default:"Not specified" }}</div>
+                    {% if transfer.sender_account %}
+                    <div class="font-mono text-xs text-slate-500 mt-0.5">{% if can_view_full %}{{ transfer.sender_account }}{% else %}{{ transfer.masked_sender_account }}{% endif %}</div>
+                    {% endif %}
+                    <div class="text-xs text-slate-600 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-building-columns text-[10px] text-slate-400"></i>
+                        <span>{{ transfer.sender_bank_name }}</span>
+                    </div>
+                </div>
+
+                <!-- Beneficiary -->
+                <div>
+                    <div class="text-[11px] text-slate-400 uppercase font-semibold">Beneficiary Customer (Recipient)</div>
+                    <div class="font-bold text-slate-900 text-sm mt-0.5">{{ transfer.beneficiary_name|default:"Not specified" }}</div>
+                    {% if transfer.beneficiary_account %}
+                    <div class="font-mono text-xs text-slate-500 mt-0.5">{% if can_view_full %}{{ transfer.beneficiary_account }}{% else %}{{ transfer.masked_beneficiary_account }}{% endif %}</div>
+                    {% endif %}
+                    <div class="text-xs text-slate-600 mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-building-columns text-[10px] text-slate-400"></i>
+                        <span>{{ transfer.beneficiary_bank_name }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fee & Net Settlement Breakdown -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Settlement Summary</h4>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between text-slate-600">
+                        <span>Original Wire Amount:</span>
+                        <span class="font-bold text-slate-800">{{ transfer.currency }} {{ transfer.amount|floatformat:2 }}</span>
+                    </div>
+                    <div class="flex justify-between text-slate-600">
+                        <span>Recorded Intermediary Fees:</span>
+                        <span class="font-bold text-red-600">-{{ transfer.currency }} {{ transfer.total_deducted_fees|floatformat:2 }}</span>
+                    </div>
+                    <div class="pt-2 border-t border-slate-100 flex justify-between text-sm font-bold text-slate-900">
+                        <span>Source:</span>
+                        <span class="text-slate-700">Admin-entered record</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-orange-50 border border-orange-100 rounded-2xl p-4 text-xs text-orange-800">
+                This page shows information entered by our team. It is not a live bank or SWIFT status feed.
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

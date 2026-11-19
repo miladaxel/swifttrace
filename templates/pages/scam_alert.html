@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment Document Guidance | Wire Records{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-16">
+    <div class="text-center mb-10">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900">Check payment claims with your bank</h1>
+        <p class="text-slate-600 mt-4">A receipt, MT103 text, screenshot, or record on this site is not proof that funds reached the beneficiary account.</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-200 p-8 space-y-6 text-sm text-slate-700 leading-relaxed">
+        <div class="rounded-xl border-l-4 border-red-500 bg-red-50 p-5">
+            <h2 class="font-bold text-red-900">Confirm receipt before releasing goods or services</h2>
+            <p class="mt-2 text-red-800">Ask the receiving bank to confirm whether funds were credited. The sending bank can investigate a delayed payment using its own records.</p>
+        </div>
+        <div>
+            <h2 class="font-bold text-slate-900">Information to compare</h2>
+            <ul class="list-disc pl-5 mt-3 space-y-2">
+                <li>Check that the UETR or payment reference matches the document you were given.</li>
+                <li>Compare the amount, currency, payment date, and beneficiary details with your own records.</li>
+                <li>Ask your bank about missing information or mismatches. A well-formatted document can still be inaccurate or altered.</li>
+            </ul>
+        </div>
+        <p>Our record search shows only information entered by an administrator. The MT103 text tool extracts fields but does not determine whether a document is genuine.</p>
+        <a href="{% url 'tracker:wire_transfer' %}" class="inline-block px-5 py-3 rounded-lg bg-orange-500 text-white font-bold">Search a published record</a>
+    </div>
+</div>
+{% endblock %}

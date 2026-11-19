@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}About This Project | Wire Records{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-16">
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-extrabold text-slate-900">About this project</h1>
+        <p class="text-slate-600 mt-4">An independent prototype for searching administrator-published payment records.</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-slate-200 p-8 sm:p-10 space-y-6 text-sm text-slate-700 leading-relaxed">
+        <p>Administrators enter payment identifiers, amounts, parties, recorded status, source information, and optional supporting files. A record becomes searchable only after publication.</p>
+        <p>Users can look up a published record by UETR or by payment reference together with its date and amount. The result shows the recorded status and when that status was observed. This project does not query a bank or the SWIFT network.</p>
+        <p>The IBAN tool checks format and check digits. The MT103 tool extracts selected fields from pasted text. Corridor pages and name matching use illustrative data.</p>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
+            This project is not affiliated with Ohmyfin Limited or S.W.I.F.T. SC. It does not move money or verify that a transfer settled. Confirm payment status with your bank.
+        </div>
+    </div>
+</div>
+{% endblock %}

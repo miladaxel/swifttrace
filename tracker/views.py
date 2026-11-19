@@ -1,0 +1,126 @@
+import json
+from django.conf import settings
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import JsonResponse, Http404
+from django.http import FileResponse
+from django.core.exceptions import PermissionDenied
+from django.contrib.admin.views.decorators import staff_member_required
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
+from django.utils import timezone
+from .models import WireTransfer, TransferSourceDocument
+from .services import MT103Parser
+from .forms import WireTransferSearchForm
+from .rate_limit import record_search_attempt
+
+
+@never_cache
+def wire_transfer_view(request):
+    """Find only records entered and published by an administrator."""
+    form = WireTransferSearchForm(request.POST or None)
+    if request.method == 'POST':
+        allowed, retry_after = record_search_attempt(request)
+        if not allowed:
+            response = render(request, 'tracker/wire_transfer.html', {
+                'form': form,
+                'rate_limit_message': 'Too many searches. Please try again in a few minutes.',
+            }, status=429)
+            response['Retry-After'] = str(retry_after)
+            return response
+    if request.method == 'POST' and form.is_valid():
+        data = form.cleaned_data
+        matches = WireTransfer.objects.filter(is_published=True)
+        if data['uetr']:
+            matches = matches.filter(uetr__iexact=data['uetr'])
+        if data['reference']:
+            matches = matches.filter(reference_number__iexact=data['reference'])
+        if data['date_of_payment']:
+            matches = matches.filter(date_of_payment=data['date_of_payment'])
+        if data['amount'] is not None:
+            matches = matches.filter(amount=data['amount'])
+        if data['currency']:
+            matches = matches.filter(currency__iexact=data['currency'])
+
+        found = list(matches[:2])
+        if not found:
+            form.add_error(None, 'No published document matches these details. Check the UETR or reference, date and amount. If the details are correct, ask the team that provided this service whether the record has been published.')
+        elif len(found) > 1:
+            form.add_error(None, 'More than one document matches. Add the UETR or currency to narrow your search.')
+        else:
+            request.session['found_transfer_id'] = found[0].pk
+            request.session['found_transfer_expires_at'] = int(timezone.now().timestamp()) + settings.WIRE_RESULT_ACCESS_SECONDS
+            return redirect('tracker:tracking_result', transfer_id=found[0].pk)
+
+    return render(request, 'tracker/wire_transfer.html', {'form': form})
+
+
+@never_cache
+def tracking_result_view(request, transfer_id):
+    transfer = get_object_or_404(WireTransfer, pk=transfer_id)
+    can_view_full = request.user.is_staff and request.user.has_perm('tracker.view_wiretransfer')
+    if not can_view_full and (
+        not transfer.is_published
+        or request.session.get('found_transfer_id') != transfer.pk
+        or request.session.get('found_transfer_expires_at', 0) <= int(timezone.now().timestamp())
+    ):
+        raise Http404('Search for this document first.')
+    response = render(request, 'tracker/tracking_result.html', {
+        'transfer': transfer, 'can_view_full': can_view_full,
+    })
+    response['X-Robots-Tag'] = 'noindex, nofollow'
+    return response
+
+
+@staff_member_required
+def download_source_document(request, document_id):
+    if not request.user.has_perm('tracker.view_wiretransfer'):
+        raise PermissionDenied
+    document = get_object_or_404(TransferSourceDocument, pk=document_id)
+    try:
+        document.file.open('rb')
+    except (OSError, ValueError):
+        raise Http404('Source file is unavailable.')
+    response = FileResponse(
+        document.file, as_attachment=True,
+        filename=document.original_filename or 'source-document',
+        content_type='application/octet-stream',
+    )
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@csrf_exempt
+def parse_mt103_api(request):
+    """
+    Extract selected fields from MT103-like text. No authenticity check is made.
+    """
+    if request.method == 'POST':
+        raw_text = ''
+        
+        # Handle uploaded file if present
+        if request.FILES.get('document'):
+            uploaded_file = request.FILES['document']
+            try:
+                raw_text = uploaded_file.read().decode('utf-8', errors='ignore')
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': f"Failed to read file: {str(e)}"}, status=400)
+        else:
+            try:
+                data = json.loads(request.body.decode('utf-8'))
+                raw_text = data.get('raw_text', '')
+            except Exception:
+                raw_text = request.POST.get('raw_text', '')
+
+        if not raw_text.strip():
+            return JsonResponse({'success': False, 'error': 'No MT103 text provided.'}, status=400)
+
+        parsed_data = MT103Parser.parse(raw_text)
+        return JsonResponse({
+            'success': True,
+            'data': parsed_data
+        })
+
+    return JsonResponse({'error': 'POST method required'}, status=405)
+
+

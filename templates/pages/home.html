@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Wire Records | Find a Payment Record{% endblock %}
+
+{% block content %}
+<section class="bg-gradient-to-b from-orange-50 to-white py-16">
+    <div class="max-w-5xl mx-auto px-4 text-center">
+        <span class="inline-flex px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-bold uppercase tracking-wider">Admin-published records</span>
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mt-6">Find a cross-border payment record</h1>
+        <p class="text-base text-slate-600 leading-relaxed max-w-2xl mx-auto mt-5">Search by UETR, or use a payment reference with the date and amount. Results show information entered and published by an administrator, including when the status was observed.</p>
+        <div class="flex flex-wrap justify-center gap-3 mt-8">
+            <a href="{% url 'tracker:wire_transfer' %}" class="px-7 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-sm">Search a payment record</a>
+            <a href="{% url 'pages:about' %}" class="px-7 py-3.5 bg-white border border-slate-200 hover:border-orange-200 text-slate-700 font-bold rounded-xl">How this works</a>
+        </div>
+        <p class="text-xs text-slate-500 mt-6">This service does not retrieve live status from a bank or the SWIFT network.</p>
+    </div>
+</section>
+
+<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+    <div class="mb-8">
+        <h2 class="text-2xl font-extrabold text-slate-900">Available tools</h2>
+        <p class="text-sm text-slate-500 mt-2">Each tool states what it checks and where its data comes from.</p>
+    </div>
+    <div class="grid gap-5 md:grid-cols-3">
+        <a href="{% url 'tracker:wire_transfer' %}" class="bg-white p-7 rounded-2xl border border-slate-200 hover:border-orange-300 shadow-sm">
+            <i class="fa-solid fa-magnifying-glass text-orange-500 text-xl"></i>
+            <h3 class="font-bold text-slate-900 mt-4">Payment record search</h3>
+            <p class="text-sm text-slate-600 mt-2">Find an administrator-published record and read its recorded status and stages.</p>
+        </a>
+        <a href="{% url 'tools:iban_validator' %}" class="bg-white p-7 rounded-2xl border border-slate-200 hover:border-orange-300 shadow-sm">
+            <i class="fa-solid fa-check-double text-orange-500 text-xl"></i>
+            <h3 class="font-bold text-slate-900 mt-4">IBAN checksum check</h3>
+            <p class="text-sm text-slate-600 mt-2">Check an IBAN's format, country length and check digits. This does not verify that an account exists.</p>
+        </a>
+        <a href="{% url 'tools:document_validator' %}" class="bg-white p-7 rounded-2xl border border-slate-200 hover:border-orange-300 shadow-sm">
+            <i class="fa-solid fa-file-lines text-orange-500 text-xl"></i>
+            <h3 class="font-bold text-slate-900 mt-4">MT103 text field extractor</h3>
+            <p class="text-sm text-slate-600 mt-2">Extract selected fields from pasted MT103 text. It does not authenticate a document or payment.</p>
+        </a>
+    </div>
+</section>
+
+<section class="bg-slate-50 border-y border-slate-200 py-14">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 class="text-2xl font-extrabold text-slate-900">Illustrative data tools</h2>
+        <p class="text-sm text-slate-600 mt-2 max-w-3xl">These pages use fixed examples while live banking and watchlist data are not connected. They are for exploring the interface, not for payment or compliance decisions.</p>
+        <div class="grid gap-5 md:grid-cols-3 mt-7">
+            <a href="{% url 'tools:correspondent_banks' %}" class="bg-white p-6 rounded-xl border border-slate-200 hover:border-orange-300 font-semibold text-slate-800">Sample corridor information &rarr;</a>
+            <a href="{% url 'tools:arrival_estimator' %}" class="bg-white p-6 rounded-xl border border-slate-200 hover:border-orange-300 font-semibold text-slate-800">Sample transit ranges &rarr;</a>
+            <a href="{% url 'tools:sanctions_screener' %}" class="bg-white p-6 rounded-xl border border-slate-200 hover:border-orange-300 font-semibold text-slate-800">Fictional name-matching demo &rarr;</a>
+        </div>
+    </div>
+</section>
+
+<section class="max-w-4xl mx-auto px-4 py-14">
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-7">
+        <h2 class="font-bold text-amber-950">Before acting on a payment record</h2>
+        <p class="text-sm text-amber-900 mt-2">A published record reflects information entered into this project. It is not proof that a transfer was made or that funds arrived. Confirm receipt and final status directly with the relevant bank.</p>
+        <a href="{% url 'pages:scam_alert' %}" class="inline-block text-sm font-bold text-orange-700 mt-4 hover:underline">Read payment document guidance &rarr;</a>
+    </div>
+</section>
+{% endblock %}

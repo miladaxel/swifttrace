@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment Records Dashboard | Wire Records{% endblock %}
+
+{% block content %}
+<div class="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+
+    <!-- Header & Action -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Payment Records Dashboard</h1>
+            <p class="text-sm text-slate-500 mt-1">Review records and statuses entered by administrators.</p>
+        </div>
+        {% if perms.tracker.add_wiretransfer %}<div class="flex items-center space-x-3">
+            <a href="{% url 'admin:tracker_wiretransfer_add' %}" class="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
+                <i class="fa-solid fa-plus text-xs"></i>
+                <span>Add Payment Record</span>
+            </a>
+        </div>{% endif %}
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-slate-400 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider">Total Records</span>
+                <i class="fa-solid fa-layer-group text-slate-400"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-slate-900">{{ total_count }}</div>
+            <div class="text-xs text-slate-500 mt-1">Records in this portal</div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-amber-500 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">In Transit</span>
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-amber-600">{{ in_transit_count }}</div>
+            <div class="text-xs text-slate-500 mt-1">Recorded with this status</div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-emerald-500 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Credited / Settled</span>
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-emerald-600">{{ completed_count }}</div>
+            <div class="text-xs text-slate-500 mt-1">Recorded with this status</div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-purple-500 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Held / Review</span>
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-purple-600">{{ held_count }}</div>
+            <div class="text-xs text-slate-500 mt-1">Recorded with this status</div>
+        </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- Status Filter Pills -->
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'dashboard:index' %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if not selected_status %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                All Wires
+            </a>
+            <a href="{% url 'dashboard:index' %}?status=ACSP" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'ACSP' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                In Transit (ACSP)
+            </a>
+            <a href="{% url 'dashboard:index' %}?status=ACCC" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'ACCC' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Settled (ACCC)
+            </a>
+            <a href="{% url 'dashboard:index' %}?status=HOLD" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'HOLD' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Held (HOLD)
+            </a>
+        </div>
+
+        <!-- Search Input -->
+        <form method="GET" action="{% url 'dashboard:index' %}" class="relative w-full md:w-80">
+            <input 
+                type="text" 
+                name="q" 
+                value="{{ search_query }}" 
+                placeholder="Search by UETR, Ref, or Party..." 
+                class="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800"
+            >
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+        </form>
+    </div>
+
+    <!-- Payments Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-3.5 px-6">Payment Reference & UETR</th>
+                        <th class="py-3.5 px-6">Date</th>
+                        <th class="py-3.5 px-6">Amount</th>
+                        <th class="py-3.5 px-6">Counterparties</th>
+                        <th class="py-3.5 px-6">Current Status</th>
+                        <th class="py-3.5 px-6 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-sm">
+                    {% for item in transfers %}
+                    <tr class="hover:bg-orange-50/40 transition">
+                        <td class="py-4 px-6">
+                            <div class="font-bold text-slate-900 font-mono text-xs">{{ item.reference_number|default:"No Ref" }}</div>
+                            <div class="text-[11px] text-slate-400 font-mono tracking-tight mt-0.5">{{ item.uetr }}</div>
+                        </td>
+                        <td class="py-4 px-6 text-xs text-slate-600 whitespace-nowrap">
+                            {{ item.date_of_payment }}
+                        </td>
+                        <td class="py-4 px-6 whitespace-nowrap">
+                            <span class="font-extrabold text-slate-900">{{ item.currency }}</span>
+                            <span class="font-bold text-slate-800">{{ item.amount|floatformat:2 }}</span>
+                        </td>
+                        <td class="py-4 px-6 text-xs">
+                            <div class="text-slate-900 font-bold flex items-center gap-1.5">
+                                <span class="text-[10px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-mono font-bold uppercase">To</span>
+                                <span>{{ item.beneficiary_name|default:"Beneficiary" }}</span>
+                            </div>
+                            {% if item.sender_name %}
+                            <div class="text-[11px] text-slate-600 flex items-center gap-1.5 mt-1">
+                                <span class="text-[10px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-mono font-bold uppercase">From</span>
+                                <span>{{ item.sender_name }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="text-[11px] text-slate-400 mt-0.5">
+                                {{ item.sender_bank_name|truncatechars:20 }} &rarr; {{ item.beneficiary_bank_name|truncatechars:24 }}
+                            </div>
+                        </td>
+                        <td class="py-4 px-6 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold gap-1.5
+                                {% if item.status == 'ACCC' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                                {% elif item.status == 'ACSP' %}bg-amber-50 text-amber-700 border border-amber-200
+                                {% elif item.status == 'HOLD' %}bg-purple-50 text-purple-700 border border-purple-200
+                                {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+                                <span class="w-1.5 h-1.5 rounded-full 
+                                    {% if item.status == 'ACCC' %}bg-emerald-500
+                                    {% elif item.status == 'ACSP' %}bg-amber-500
+                                    {% elif item.status == 'HOLD' %}bg-purple-500
+                                    {% else %}bg-red-500{% endif %}"></span>
+                                {{ item.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="py-4 px-6 text-right whitespace-nowrap">
+                            <a href="{% url 'tracker:tracking_result' item.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white rounded-lg text-xs font-bold transition">
+                <span>View Record</span>
+                                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-12 text-center text-slate-400 text-sm">
+                            <i class="fa-solid fa-box-open text-3xl mb-3 block text-slate-300"></i>
+                            No payment records found.{% if perms.tracker.add_wiretransfer %} <a href="{% url 'admin:tracker_wiretransfer_add' %}" class="text-orange-500 underline font-semibold">Add a record</a> to get started.{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
