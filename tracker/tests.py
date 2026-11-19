@@ -15,7 +15,7 @@ from .admin import WireTransferAdmin
 from .models import WireTransfer, TrackingStep, TransferSourceDocument, TransferStatusHistory, SearchRateWindow
 from .services import MT103Parser
 from .storage import private_document_storage
-from .rate_limit import get_client_ip
+from .rate_limit import get_client_ip, cleanup_expired_search_windows
 from tools.services import IBANValidatorService, SanctionsScreenerService
 
 
@@ -549,4 +549,22 @@ class PublicSearchPrivacyTests(TestCase):
         self.assertEqual(response_oversized.status_code, 400)
         self.assertFalse(response_oversized.json()['success'])
         self.assertIn('2 MB or smaller', response_oversized.json()['error'])
+
+    def test_cleanup_expired_search_windows(self):
+        from datetime import timedelta
+        now = timezone.now()
+        expired = SearchRateWindow.objects.create(
+            lookup_key='expired-key',
+            window_start=now - timedelta(days=2),
+            attempts=5,
+        )
+        active = SearchRateWindow.objects.create(
+            lookup_key='active-key',
+            window_start=now,
+            attempts=1,
+        )
+        cleanup_expired_search_windows(now)
+        self.assertFalse(SearchRateWindow.objects.filter(pk=expired.pk).exists())
+        self.assertTrue(SearchRateWindow.objects.filter(pk=active.pk).exists())
+
 

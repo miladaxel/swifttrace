@@ -1,3 +1,4 @@
+import random
 from datetime import datetime, timedelta, timezone as utc_timezone
 from ipaddress import ip_address
 
@@ -25,6 +26,12 @@ def get_client_ip(request):
     return remote
 
 
+def cleanup_expired_search_windows(now=None):
+    """Delete search rate windows older than 1 day."""
+    now = now or timezone.now()
+    return SearchRateWindow.objects.filter(window_start__lt=now - timedelta(days=1)).delete()
+
+
 def record_search_attempt(request):
     """Return (allowed, seconds_until_reset) for an IP's search window."""
     now = timezone.now()
@@ -35,7 +42,10 @@ def record_search_attempt(request):
     client_ip = get_client_ip(request)
     lookup_key = salted_hmac('wire-transfer-search', client_ip, algorithm='sha256').hexdigest()
 
-    SearchRateWindow.objects.filter(window_start__lt=now - timedelta(days=1)).delete()
+    # Probabilistic cleanup (~5% chance per request) to prevent table lock contention
+    if random.random() < 0.05:
+        cleanup_expired_search_windows(now)
+
     SearchRateWindow.objects.get_or_create(
         lookup_key=lookup_key, window_start=window_start,
         defaults={'attempts': 0},
