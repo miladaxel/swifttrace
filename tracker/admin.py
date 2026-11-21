@@ -5,7 +5,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils.html import format_html
 from django.core.exceptions import ValidationError
-from .models import WireTransfer, TrackingStep, TransferSourceDocument, TransferStatusHistory
+from .models import WireTransfer, TrackingStep, TransferSourceDocument, TransferStatusHistory, TrackerSettings
 
 
 class WireTransferAdminForm(forms.ModelForm):
@@ -127,3 +127,56 @@ class TrackingStepAdmin(admin.ModelAdmin):
     list_display = ('transfer', 'step_order', 'bank_name', 'bank_bic', 'role', 'status_label', 'fee_deducted')
     list_filter = ('status_code', 'role')
     search_fields = ('bank_name', 'bank_bic', 'transfer__uetr')
+
+
+@admin.register(TrackerSettings)
+class TrackerSettingsAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'require_login', 'updated_at', 'updated_by')
+    list_editable = ('require_login',)
+    readonly_fields = ('updated_at', 'updated_by')
+    actions = ['enable_login_requirement', 'disable_login_requirement']
+
+    fieldsets = (
+        ('Wire Tracker Access Configuration', {
+            'fields': ('require_login',),
+            'description': (
+                'Configure whether users must be registered and logged in to use the Wire Tracker. '
+                'By default, this is disabled (public access without login). When enabled, any visitor '
+                'attempting to search or track a wire transfer will be prompted to log in or register.'
+            ),
+        }),
+        ('Audit Log', {
+            'fields': ('updated_at', 'updated_by'),
+            'classes': ('collapse',),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        return not TrackerSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        TrackerSettings.get_settings()
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Require login to use Wire Tracker")
+    def enable_login_requirement(self, request, queryset):
+        for item in queryset:
+            item.require_login = True
+            item.updated_by = request.user
+            item.save()
+        self.message_user(request, "Wire Tracker now requires users to be logged in / registered.", messages.SUCCESS)
+
+    @admin.action(description="Disable login requirement (Public access without login)")
+    def disable_login_requirement(self, request, queryset):
+        for item in queryset:
+            item.require_login = False
+            item.updated_by = request.user
+            item.save()
+        self.message_user(request, "Wire Tracker is now open to the public without login requirement.", messages.SUCCESS)

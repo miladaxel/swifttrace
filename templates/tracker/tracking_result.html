@@ -3,18 +3,30 @@
 {% block title %}Payment Record | Wire Records{% endblock %}
 
 {% block content %}
-<div class="py-10 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+<div class="record-page py-10 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
 
     <!-- Top Bar Navigation -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <a href="{% url 'tracker:wire_transfer' %}" class="inline-flex items-center text-sm font-semibold text-orange-600 hover:text-orange-700 transition gap-2">
-            <i class="fa-solid fa-arrow-left"></i>
+            <i aria-hidden="true" class="fa-solid fa-arrow-left"></i>
             <span>Search Another Record</span>
         </a>
-        <div class="flex items-center space-x-3">
+        <div class="flex flex-wrap items-center gap-2.5">
+            {% if transfer.source_documents.exists %}
+                {% for doc in transfer.source_documents.all %}
+                <a href="{% url 'tracker:download_source_document' doc.pk %}" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
+                    <i aria-hidden="true" class="fa-solid fa-file-arrow-down"></i>
+                    <span>Download Document{% if transfer.source_documents.count > 1 %} #{{ forloop.counter }}{% endif %}</span>
+                </a>
+                {% endfor %}
+            {% endif %}
+            <a href="{% url 'tracker:download_transfer_statement' transfer.pk %}" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
+                <i aria-hidden="true" class="fa-solid fa-file-lines"></i>
+                <span>Download Statement</span>
+            </a>
             {% if can_view_full %}
-            <a href="{% url 'dashboard:index' %}" class="px-3 py-1.5 bg-slate-800 text-white hover:bg-slate-900 text-xs font-semibold rounded-lg shadow-sm flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-table-columns"></i>
+            <a href="{% url 'dashboard:index' %}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition flex items-center gap-1.5">
+                <i aria-hidden="true" class="fa-solid fa-table-columns"></i>
                 <span>Dashboard</span>
             </a>
             {% endif %}
@@ -37,9 +49,9 @@
                     </span>
                     {% endif %}
                 </div>
-                <div class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
                     {{ transfer.currency }} {{ transfer.amount|floatformat:2 }}
-                </div>
+                </h1>
                 <div class="text-sm text-slate-500 mt-1">
                     Initiated on {{ transfer.date_of_payment }} &bull; Charge Model: <span class="font-semibold text-slate-700">{{ transfer.get_charge_type_display }}</span>
                 </div>
@@ -47,12 +59,12 @@
 
             <!-- Status Indicator -->
             <div class="flex flex-col md:items-end">
-                <div class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold gap-2 
+                <div class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold gap-2
                     {% if transfer.status == 'ACCC' %}bg-emerald-50 text-emerald-700 border border-emerald-200
                     {% elif transfer.status == 'ACSP' %}bg-amber-50 text-amber-700 border border-amber-200
                     {% elif transfer.status == 'HOLD' %}bg-purple-50 text-purple-700 border border-purple-200
                     {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
-                    <span class="w-2.5 h-2.5 rounded-full 
+                    <span class="w-2.5 h-2.5 rounded-full
                         {% if transfer.status == 'ACCC' %}bg-emerald-500
                         {% elif transfer.status == 'ACSP' %}bg-amber-500 animate-pulse
                         {% elif transfer.status == 'HOLD' %}bg-purple-500
@@ -75,13 +87,46 @@
 
         {% if can_view_full and transfer.status_reason %}
         <div class="mt-6 pt-4 border-t border-slate-100 flex items-start gap-2.5 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl">
-            <i class="fa-solid fa-circle-info text-orange-500 mt-0.5"></i>
+            <i aria-hidden="true" class="fa-solid fa-circle-info text-orange-500 mt-0.5"></i>
             <div>
                 <span class="font-bold text-slate-800">Status Reason: </span>
                 {{ transfer.status_reason }}
             </div>
         </div>
         {% endif %}
+
+        <!-- Document Download Action Banner -->
+        <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/60 p-4 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-base flex-shrink-0">
+                    <i aria-hidden="true" class="fa-solid fa-file-arrow-down"></i>
+                </div>
+                <div>
+                    <div class="text-xs font-bold text-slate-900">Download Payment Documents</div>
+                    <div class="text-[11px] text-slate-500">
+                        {% if transfer.source_documents.exists %}
+                            {{ transfer.source_documents.count }} verified document file(s) available for download.
+                        {% else %}
+                            Download the official transaction statement for this wire transfer.
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                {% if transfer.source_documents.exists %}
+                    {% for doc in transfer.source_documents.all %}
+                    <a href="{% url 'tracker:download_source_document' doc.pk %}" class="px-3.5 py-2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition flex items-center gap-1.5">
+                        <i aria-hidden="true" class="fa-solid fa-download text-xs"></i>
+                        <span>Download {{ doc.original_filename|default:"Document"|truncatechars:20 }}</span>
+                    </a>
+                    {% endfor %}
+                {% endif %}
+                <a href="{% url 'tracker:download_transfer_statement' transfer.pk %}" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5">
+                    <i aria-hidden="true" class="fa-solid fa-file-lines text-xs"></i>
+                    <span>Official Statement</span>
+                </a>
+            </div>
+        </div>
         <div class="mt-4 text-xs text-slate-500">
             {% if transfer.source_type %}Information source: {{ transfer.get_source_type_display }} &bull; {% endif %}
             Record last edited {{ transfer.updated_at|date:"M d, Y - H:i" }} UTC
@@ -106,12 +151,12 @@
 
     <!-- Grid: Journey Timeline & Financial Details -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         <!-- Correspondent Banking Journey Timeline (2 Columns) -->
         <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
             <div class="flex items-center justify-between mb-6 pb-3 border-b border-slate-100">
                 <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-route text-orange-500"></i>
+                    <i aria-hidden="true" class="fa-solid fa-route text-orange-500"></i>
                     Recorded Payment Stages
                 </h3>
                 <span class="text-xs bg-orange-100 text-orange-800 font-bold px-2 py-1 rounded">
@@ -124,7 +169,7 @@
                 {% for step in transfer.steps.all %}
                 <div class="relative group">
                     <!-- Dot Marker -->
-                    <div class="absolute -left-6 top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm flex items-center justify-center 
+                    <div class="absolute -left-6 top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm flex items-center justify-center
                         {% if step.status_code == 'ACCC' %}bg-emerald-500
                         {% elif step.status_code == 'ACSP' %}bg-orange-500 ring-4 ring-orange-100
                         {% else %}bg-slate-400{% endif %}">
@@ -152,7 +197,7 @@
 
                         <div class="flex items-center justify-between pt-2 border-t border-slate-200/60 text-[11px]">
                             <span class="font-bold text-slate-700 flex items-center gap-1">
-                                <i class="fa-solid fa-circle-info text-slate-400"></i>
+                                <i aria-hidden="true" class="fa-solid fa-circle-info text-slate-400"></i>
                                 {{ step.status_label }}
                             </span>
                             {% if step.fee_deducted > 0 %}
@@ -176,7 +221,7 @@
             <!-- Parties Info -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Counterparties</h4>
-                
+
                 <!-- Sender -->
                 <div class="mb-5 pb-5 border-b border-slate-100">
                     <div class="text-[11px] text-slate-400 uppercase font-semibold">Ordering Customer (Sender)</div>
@@ -185,7 +230,7 @@
                     <div class="font-mono text-xs text-slate-500 mt-0.5">{% if can_view_full %}{{ transfer.sender_account }}{% else %}{{ transfer.masked_sender_account }}{% endif %}</div>
                     {% endif %}
                     <div class="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                        <i class="fa-solid fa-building-columns text-[10px] text-slate-400"></i>
+                        <i aria-hidden="true" class="fa-solid fa-building-columns text-[10px] text-slate-400"></i>
                         <span>{{ transfer.sender_bank_name }}</span>
                     </div>
                 </div>
@@ -198,10 +243,45 @@
                     <div class="font-mono text-xs text-slate-500 mt-0.5">{% if can_view_full %}{{ transfer.beneficiary_account }}{% else %}{{ transfer.masked_beneficiary_account }}{% endif %}</div>
                     {% endif %}
                     <div class="text-xs text-slate-600 mt-1 flex items-center gap-1">
-                        <i class="fa-solid fa-building-columns text-[10px] text-slate-400"></i>
+                        <i aria-hidden="true" class="fa-solid fa-building-columns text-[10px] text-slate-400"></i>
                         <span>{{ transfer.beneficiary_bank_name }}</span>
                     </div>
                 </div>
+            </div>
+
+            <!-- Attached Documents Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i aria-hidden="true" class="fa-solid fa-paperclip text-orange-500"></i>
+                        <span>Documents ({{ transfer.source_documents.count }})</span>
+                    </h4>
+                </div>
+
+                {% if transfer.source_documents.exists %}
+                <div class="space-y-3 mb-4">
+                    {% for doc in transfer.source_documents.all %}
+                    <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:border-orange-300 transition">
+                        <div class="font-bold text-xs text-slate-900 truncate" title="{{ doc.original_filename }}">
+                            {{ doc.original_filename|default:"Source Document" }}
+                        </div>
+                        {% if doc.description %}
+                        <div class="text-[11px] text-slate-500 mt-0.5">{{ doc.description }}</div>
+                        {% endif %}
+                        <div class="text-[10px] text-slate-400 mt-1">Uploaded {{ doc.uploaded_at|date:"M d, Y" }}</div>
+                        <a href="{% url 'tracker:download_source_document' doc.pk %}" class="mt-2.5 w-full py-1.5 px-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                            <i aria-hidden="true" class="fa-solid fa-arrow-down-to-bracket text-xs"></i>
+                            <span>Download File</span>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <a href="{% url 'tracker:download_transfer_statement' transfer.pk %}" class="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <i aria-hidden="true" class="fa-solid fa-file-arrow-down text-xs"></i>
+                    <span>Download Official Statement</span>
+                </a>
             </div>
 
             <!-- Fee & Net Settlement Breakdown -->

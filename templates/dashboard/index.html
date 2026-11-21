@@ -3,7 +3,7 @@
 {% block title %}Payment Records Dashboard | Wire Records{% endblock %}
 
 {% block content %}
-<div class="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+<div class="dashboard-page py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
 
     <!-- Header & Action -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -11,12 +11,63 @@
             <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Payment Records Dashboard</h1>
             <p class="text-sm text-slate-500 mt-1">Review records and statuses entered by administrators.</p>
         </div>
-        {% if perms.tracker.add_wiretransfer %}<div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-3">
+            {% if perms.tracker.add_wiretransfer %}
             <a href="{% url 'admin:tracker_wiretransfer_add' %}" class="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
-                <i class="fa-solid fa-plus text-xs"></i>
+                <i aria-hidden="true" class="fa-solid fa-plus text-xs"></i>
                 <span>Add Payment Record</span>
             </a>
-        </div>{% endif %}
+            {% endif %}
+            <a href="{% url 'admin:tracker_trackersettings_changelist' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition flex items-center gap-2">
+                <i aria-hidden="true" class="fa-solid fa-sliders text-xs"></i>
+                <span>Tracker Settings</span>
+            </a>
+            <a href="{% url 'admin:accounts_membershiptier_changelist' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition">Membership Limits</a>
+        </div>
+    </div>
+
+    <!-- Access Configuration Bar -->
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="w-11 h-11 rounded-2xl {% if tracker_settings.require_login %}bg-amber-100 text-amber-600{% else %}bg-emerald-100 text-emerald-600{% endif %} flex items-center justify-center text-lg flex-shrink-0">
+                <i aria-hidden="true" class="fa-solid {% if tracker_settings.require_login %}fa-lock{% else %}fa-lock-open{% endif %}"></i>
+            </div>
+            <div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-bold text-slate-900">Wire Tracker Access Mode:</span>
+                    {% if tracker_settings.require_login %}
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                        Registration & Login Required
+                    </span>
+                    {% else %}
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Public Access (No Account Required)
+                    </span>
+                    {% endif %}
+                </div>
+                <p class="text-xs text-slate-500 mt-1">
+                    {% if tracker_settings.require_login %}
+                    Users must be registered and signed in to search wire transfers or view tracking results.
+                    {% else %}
+                    Public search is open to all visitors without logging in (Default system behavior).
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <form method="POST" action="{% url 'tracker:toggle_login_requirement' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm {% if tracker_settings.require_login %}bg-emerald-600 hover:bg-emerald-700 text-white{% else %}bg-amber-500 hover:bg-amber-600 text-white{% endif %}">
+                    <i aria-hidden="true" class="fa-solid fa-arrows-rotate text-xs"></i>
+                    <span>{% if tracker_settings.require_login %}Make Public (No Login){% else %}Require Login to Use Tracker{% endif %}</span>
+                </button>
+            </form>
+            <a href="{% url 'admin:tracker_trackersettings_changelist' %}" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5" title="Manage in Django Admin">
+                <i aria-hidden="true" class="fa-solid fa-gear text-xs"></i>
+                <span>Admin Panel</span>
+            </a>
+        </div>
     </div>
 
     <!-- Statistics Cards -->
@@ -24,7 +75,7 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between text-slate-400 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider">Total Records</span>
-                <i class="fa-solid fa-layer-group text-slate-400"></i>
+                <i aria-hidden="true" class="fa-solid fa-layer-group text-slate-400"></i>
             </div>
             <div class="text-3xl font-extrabold text-slate-900">{{ total_count }}</div>
             <div class="text-xs text-slate-500 mt-1">Records in this portal</div>
@@ -33,7 +84,7 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between text-amber-500 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider text-slate-400">In Transit</span>
-                <i class="fa-solid fa-clock-rotate-left"></i>
+                <i aria-hidden="true" class="fa-solid fa-clock-rotate-left"></i>
             </div>
             <div class="text-3xl font-extrabold text-amber-600">{{ in_transit_count }}</div>
             <div class="text-xs text-slate-500 mt-1">Recorded with this status</div>
@@ -42,7 +93,7 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between text-emerald-500 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Credited / Settled</span>
-                <i class="fa-solid fa-circle-check"></i>
+                <i aria-hidden="true" class="fa-solid fa-circle-check"></i>
             </div>
             <div class="text-3xl font-extrabold text-emerald-600">{{ completed_count }}</div>
             <div class="text-xs text-slate-500 mt-1">Recorded with this status</div>
@@ -51,7 +102,7 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div class="flex items-center justify-between text-purple-500 mb-2">
                 <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Held / Review</span>
-                <i class="fa-solid fa-triangle-exclamation"></i>
+                <i aria-hidden="true" class="fa-solid fa-triangle-exclamation"></i>
             </div>
             <div class="text-3xl font-extrabold text-purple-600">{{ held_count }}</div>
             <div class="text-xs text-slate-500 mt-1">Recorded with this status</div>
@@ -78,14 +129,14 @@
 
         <!-- Search Input -->
         <form method="GET" action="{% url 'dashboard:index' %}" class="relative w-full md:w-80">
-            <input 
-                type="text" 
-                name="q" 
-                value="{{ search_query }}" 
-                placeholder="Search by UETR, Ref, or Party..." 
+            <input
+                type="text"
+                name="q"
+                value="{{ search_query }}"
+                placeholder="Search by UETR, Ref, or Party..."
                 class="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800"
             >
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+            <i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
         </form>
     </div>
 
@@ -138,7 +189,7 @@
                                 {% elif item.status == 'ACSP' %}bg-amber-50 text-amber-700 border border-amber-200
                                 {% elif item.status == 'HOLD' %}bg-purple-50 text-purple-700 border border-purple-200
                                 {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
-                                <span class="w-1.5 h-1.5 rounded-full 
+                                <span class="w-1.5 h-1.5 rounded-full
                                     {% if item.status == 'ACCC' %}bg-emerald-500
                                     {% elif item.status == 'ACSP' %}bg-amber-500
                                     {% elif item.status == 'HOLD' %}bg-purple-500
@@ -149,14 +200,14 @@
                         <td class="py-4 px-6 text-right whitespace-nowrap">
                             <a href="{% url 'tracker:tracking_result' item.pk %}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white rounded-lg text-xs font-bold transition">
                 <span>View Record</span>
-                                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                                <i aria-hidden="true" class="fa-solid fa-arrow-right text-[10px]"></i>
                             </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
                         <td colspan="6" class="py-12 text-center text-slate-400 text-sm">
-                            <i class="fa-solid fa-box-open text-3xl mb-3 block text-slate-300"></i>
+                            <i aria-hidden="true" class="fa-solid fa-box-open text-3xl mb-3 block text-slate-300"></i>
                             No payment records found.{% if perms.tracker.add_wiretransfer %} <a href="{% url 'admin:tracker_wiretransfer_add' %}" class="text-orange-500 underline font-semibold">Add a record</a> to get started.{% endif %}
                         </td>
                     </tr>

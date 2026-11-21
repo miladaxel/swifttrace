@@ -1,31 +1,22 @@
 {% extends 'base.html' %}
 
-{% block title %}Service Availability | Wire Records{% endblock %}
+{% block title %}Membership Tiers | Ohmyfin{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-16">
+<div class="max-w-5xl mx-auto px-4 py-16">
     <div class="text-center mb-10">
-        <h1 class="text-4xl font-extrabold text-slate-900">Service availability</h1>
-        <p class="text-slate-600 mt-4">This prototype has no paid plans, credits, subscriptions, checkout, or commercial API access.</p>
+        <h1 class="text-4xl font-extrabold text-slate-900">Membership tiers</h1>
+        <p class="text-slate-600 mt-4">Search and download allowances reset at the start of each calendar month. New accounts start on Free. Contact an administrator to change your tier.</p>
     </div>
-    <div class="grid gap-5 md:grid-cols-2">
+    <div class="grid gap-5 md:grid-cols-3">
+        {% for tier in tiers %}
         <div class="rounded-2xl bg-white border border-slate-200 p-7">
-            <h2 class="font-bold text-slate-900 text-lg">Available now</h2>
-            <ul class="mt-4 space-y-3 text-sm text-slate-600">
-                <li>Search payment records published by an administrator</li>
-                <li>Check IBAN structure and check digits</li>
-                <li>Extract selected fields from pasted MT103 text</li>
-            </ul>
+            <h2 class="font-bold text-slate-900 text-xl">{{ tier }}</h2>
+            <p class="mt-5 text-sm text-slate-600"><strong class="text-slate-900">{{ tier.monthly_search_limit }}</strong> searches per month</p>
+            <p class="mt-2 text-sm text-slate-600"><strong class="text-slate-900">{{ tier.monthly_download_limit }}</strong> downloads per month</p>
             <a href="{% url 'tracker:wire_transfer' %}" class="inline-block mt-6 px-5 py-3 bg-orange-500 text-white font-bold text-sm rounded-lg">Search records</a>
         </div>
-        <div class="rounded-2xl bg-white border border-slate-200 p-7">
-            <h2 class="font-bold text-slate-900 text-lg">Demonstrations</h2>
-            <ul class="mt-4 space-y-3 text-sm text-slate-600">
-                <li>Currency corridor examples and sample transit ranges</li>
-                <li>Name matching against fictional sample records</li>
-            </ul>
-            <p class="text-sm text-slate-500 mt-6">Bank-specific routing data, live sanctions lists, invoice generation, and paid APIs are not available in this build.</p>
-        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

@@ -12,11 +12,12 @@ from types import SimpleNamespace
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from .admin import WireTransferAdmin
-from .models import WireTransfer, TrackingStep, TransferSourceDocument, TransferStatusHistory, SearchRateWindow
+from .models import WireTransfer, TrackingStep, TransferSourceDocument, TransferStatusHistory, SearchRateWindow, TrackerSettings
 from .services import MT103Parser
 from .storage import private_document_storage
 from .rate_limit import get_client_ip, cleanup_expired_search_windows
 from tools.services import IBANValidatorService, SanctionsScreenerService
+from accounts.models import MembershipTier, MonthlyUsage
 
 
 class OhmyfinTrackerTests(TestCase):
@@ -567,4 +568,222 @@ class PublicSearchPrivacyTests(TestCase):
         self.assertFalse(SearchRateWindow.objects.filter(pk=expired.pk).exists())
         self.assertTrue(SearchRateWindow.objects.filter(pk=active.pk).exists())
 
+    def test_default_tracker_settings_is_login_not_required(self):
+        settings_obj = TrackerSettings.get_settings()
+        self.assertFalse(settings_obj.require_login)
+        self.assertFalse(TrackerSettings.is_login_required())
+
+        # Anonymous user should have full access by default
+        response = self.client.get(reverse('tracker:wire_transfer'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_wire_transfer_access_when_login_required(self):
+        settings_obj = TrackerSettings.get_settings()
+        settings_obj.require_login = True
+        settings_obj.save()
+
+        # Anonymous user attempting to GET wire_transfer should be redirected to login
+        response = self.client.get(reverse('tracker:wire_transfer'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), response.url)
+        self.assertIn('next=/wire-transfer/', response.url)
+
+        # Anonymous user attempting to POST to wire_transfer should also be redirected to login
+        post_response = self.client.post(reverse('tracker:wire_transfer'), {
+            'uetr': 'c2b9a762-b91b-4df2-8e77-508b981f4f5a',
+        })
+        self.assertEqual(post_response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), post_response.url)
+
+        # Anonymous user attempting to view tracking_result should also be redirected to login
+        track_response = self.client.get(reverse('tracker:tracking_result', kwargs={'transfer_id': 999}))
+        self.assertEqual(track_response.status_code, 302)
+        self.assertIn(reverse('accounts:login'), track_response.url)
+
+        # Authenticated user should have access
+        User = get_user_model()
+        user = User.objects.create_user(username='regularuser', password='Password123!')
+        self.client.login(username='regularuser', password='Password123!')
+
+        auth_response = self.client.get(reverse('tracker:wire_transfer'))
+        self.assertEqual(auth_response.status_code, 200)
+
+    def test_singleton_tracker_settings(self):
+        s1 = TrackerSettings.get_settings()
+        s2 = TrackerSettings(pk=2, require_login=True)
+        s2.save()  # Should force pk=1
+        self.assertEqual(s2.pk, 1)
+        self.assertEqual(TrackerSettings.objects.count(), 1)
+
+    def test_toggle_tracker_login_requirement_endpoint(self):
+        User = get_user_model()
+        staff_user = User.objects.create_user(username='staffadmin', password='Password123!', is_staff=True)
+        view_perm = Permission.objects.get(codename='view_wiretransfer')
+        staff_user.user_permissions.add(view_perm)
+        regular_user = User.objects.create_user(username='normaluser', password='Password123!')
+
+        url = reverse('tracker:toggle_login_requirement')
+
+        # 1. Anonymous user cannot toggle
+        anon_res = self.client.post(url)
+        self.assertEqual(anon_res.status_code, 302)
+
+        # 2. Regular (non-staff) user cannot toggle
+        self.client.login(username='normaluser', password='Password123!')
+        reg_res = self.client.post(url)
+        self.assertEqual(reg_res.status_code, 302)
+        self.assertIn(reverse('admin:login'), reg_res.url)
+
+        # 3. Staff user can toggle
+        self.client.login(username='staffadmin', password='Password123!')
+        self.assertFalse(TrackerSettings.is_login_required())
+
+        toggle_res1 = self.client.post(url, follow=True)
+        self.assertEqual(toggle_res1.status_code, 200)
+        self.assertTrue(TrackerSettings.is_login_required())
+
+        # Toggle back
+        toggle_res2 = self.client.post(url, follow=True)
+        self.assertEqual(toggle_res2.status_code, 200)
+        self.assertFalse(TrackerSettings.is_login_required())
+
+    def test_admin_site_tracker_settings_registration(self):
+        from .admin import TrackerSettingsAdmin
+        self.assertIn(TrackerSettings, admin.site._registry)
+        model_admin = admin.site._registry[TrackerSettings]
+        self.assertIsInstance(model_admin, TrackerSettingsAdmin)
+        self.assertIn('require_login', model_admin.list_editable)
+        self.assertFalse(model_admin.has_delete_permission(None))
+
+    def test_download_source_document_and_statement_after_search(self):
+        self.transfer.is_published = True
+        self.transfer.source_type = 'MT103'
+        self.transfer.source_description = 'Bank MT103 copy'
+        self.transfer.status_observed_at = timezone.now()
+        self.transfer.save()
+
+        with TemporaryDirectory() as temporary_root, patch.object(private_document_storage, 'location', temporary_root):
+            doc = TransferSourceDocument.objects.create(
+                transfer=self.transfer,
+                file=SimpleUploadedFile('swift-confirmation.pdf', b'%PDF-1.4 sample file content'),
+                original_filename='swift-confirmation.pdf',
+                description='Official Bank Swift MT103 Slip',
+            )
+
+            # Search as visitor
+            search_client = Client()
+            search_res = search_client.post(reverse('tracker:wire_transfer'), {
+                'uetr': self.transfer.uetr,
+                'consent': 'on',
+            })
+            self.assertEqual(search_res.status_code, 302)
+            self.assertEqual(search_res.url, reverse('tracker:tracking_result', kwargs={'transfer_id': self.transfer.pk}))
+
+            # Result page should render document links
+            result_res = search_client.get(search_res.url)
+            self.assertEqual(result_res.status_code, 200)
+            self.assertContains(result_res, 'swift-confirmation.pdf')
+            self.assertContains(result_res, reverse('tracker:download_source_document', kwargs={'document_id': doc.pk}))
+            self.assertContains(result_res, reverse('tracker:download_transfer_statement', kwargs={'transfer_id': self.transfer.pk}))
+
+            # Download attached source document
+            doc_download = search_client.get(reverse('tracker:download_source_document', kwargs={'document_id': doc.pk}))
+            self.assertEqual(doc_download.status_code, 200)
+            self.assertEqual(doc_download['Content-Disposition'], 'attachment; filename="swift-confirmation.pdf"')
+            self.assertEqual(b''.join(doc_download.streaming_content), b'%PDF-1.4 sample file content')
+            doc_download.close()
+
+            # Download statement
+            statement_download = search_client.get(reverse('tracker:download_transfer_statement', kwargs={'transfer_id': self.transfer.pk}))
+            self.assertEqual(statement_download.status_code, 200)
+            self.assertIn('attachment; filename="wire-statement-', statement_download['Content-Disposition'])
+            self.assertIn(self.transfer.uetr, statement_download.content.decode('utf-8'))
+
+    def test_download_document_without_search_denied(self):
+        self.transfer.is_published = True
+        self.transfer.source_type = 'MT103'
+        self.transfer.source_description = 'Bank MT103 copy'
+        self.transfer.status_observed_at = timezone.now()
+        self.transfer.save()
+
+        with TemporaryDirectory() as temporary_root, patch.object(private_document_storage, 'location', temporary_root):
+            doc = TransferSourceDocument.objects.create(
+                transfer=self.transfer,
+                file=SimpleUploadedFile('secret.pdf', b'secret'),
+                original_filename='secret.pdf',
+            )
+
+            # Client without search session
+            unauth_client = Client()
+
+            # Statement download without search session should raise 404 (or 302 to login)
+            stat_res = unauth_client.get(reverse('tracker:download_transfer_statement', kwargs={'transfer_id': self.transfer.pk}))
+            self.assertEqual(stat_res.status_code, 302)
+
+            # Source doc download without search session should redirect to login
+            doc_res = unauth_client.get(reverse('tracker:download_source_document', kwargs={'document_id': doc.pk}))
+            self.assertEqual(doc_res.status_code, 302)
+
+    def test_download_document_when_login_required(self):
+        settings_obj = TrackerSettings.get_settings()
+        settings_obj.require_login = True
+        settings_obj.save()
+
+        self.transfer.is_published = True
+        self.transfer.source_type = 'MT103'
+        self.transfer.source_description = 'Bank MT103 copy'
+        self.transfer.status_observed_at = timezone.now()
+        self.transfer.save()
+
+        with TemporaryDirectory() as temporary_root, patch.object(private_document_storage, 'location', temporary_root):
+            doc = TransferSourceDocument.objects.create(
+                transfer=self.transfer,
+                file=SimpleUploadedFile('test.pdf', b'sample'),
+                original_filename='test.pdf',
+            )
+
+            # 1. Anonymous user with simulated search session still blocked when login is required
+            session_client = Client()
+            session = session_client.session
+            session['found_transfer_id'] = self.transfer.pk
+            session['found_transfer_expires_at'] = int(timezone.now().timestamp()) + 900
+            session.save()
+
+            res1 = session_client.get(reverse('tracker:download_source_document', kwargs={'document_id': doc.pk}))
+            self.assertEqual(res1.status_code, 302)
+            self.assertIn(reverse('accounts:login'), res1.url)
+
+            # 2. Authenticated user with search session allowed
+            User = get_user_model()
+            user = User.objects.create_user(username='docdownloader', password='Password123!')
+            session_client.login(username='docdownloader', password='Password123!')
+
+            res2 = session_client.get(reverse('tracker:download_source_document', kwargs={'document_id': doc.pk}))
+            self.assertEqual(res2.status_code, 200)
+            res2.close()
+
+
+class MembershipViewTests(TestCase):
+    def test_search_and_statement_enforce_current_tier_limits(self):
+        user = get_user_model().objects.create_user(username='member', password='test-password')
+        self.client.force_login(user)
+        free = MembershipTier.objects.get(level='free')
+        free.monthly_search_limit = 1
+        free.monthly_download_limit = 1
+        free.save()
+        transfer = WireTransfer.objects.create(
+            uetr='c2b9a762-b91b-4df2-8e77-508b981f4f5a',
+            date_of_payment=timezone.localdate(), amount='100.00', currency='USD',
+            is_published=True, source_type='MT103', source_description='Test document',
+            status_observed_at=timezone.now(),
+        )
+        query = {'uetr': transfer.uetr, 'consent': 'on'}
+        search_url = reverse('tracker:wire_transfer')
+        self.assertEqual(self.client.post(search_url, query).status_code, 302)
+        self.assertEqual(self.client.post(search_url, query).status_code, 429)
+        statement_url = reverse('tracker:download_transfer_statement', args=[transfer.pk])
+        self.assertEqual(self.client.get(statement_url).status_code, 200)
+        self.assertEqual(self.client.get(statement_url).status_code, 429)
+        usage = MonthlyUsage.objects.get(identity=f'user:{user.pk}')
+        self.assertEqual((usage.searches, usage.downloads), (1, 1))
 

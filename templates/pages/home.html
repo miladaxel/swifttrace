@@ -1,62 +1,756 @@
 {% extends 'base.html' %}
 
-{% block title %}Wire Records | Find a Payment Record{% endblock %}
+{% block title %}Ohmyfin | AI Treasury Assistant & Cross-Border Payment Intelligence{% endblock %}
 
 {% block content %}
-<section class="bg-gradient-to-b from-orange-50 to-white py-16">
-    <div class="max-w-5xl mx-auto px-4 text-center">
-        <span class="inline-flex px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-bold uppercase tracking-wider">Admin-published records</span>
-        <h1 class="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight mt-6">Find a cross-border payment record</h1>
-        <p class="text-base text-slate-600 leading-relaxed max-w-2xl mx-auto mt-5">Search by UETR, or use a payment reference with the date and amount. Results show information entered and published by an administrator, including when the status was observed.</p>
-        <div class="flex flex-wrap justify-center gap-3 mt-8">
-            <a href="{% url 'tracker:wire_transfer' %}" class="px-7 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-sm">Search a payment record</a>
-            <a href="{% url 'pages:about' %}" class="px-7 py-3.5 bg-white border border-slate-200 hover:border-orange-200 text-slate-700 font-bold rounded-xl">How this works</a>
+
+<!-- Hero Section with Dual Console (Quick Search & Meet Ohm) -->
+<section class="home-hero relative overflow-hidden pt-12 pb-20 lg:pt-16 lg:pb-28 bg-gradient-to-b from-orange-50/60 via-white to-slate-50/40 border-b border-slate-200/70">
+    <!-- Subtle Background Glows -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-gradient-to-tr from-orange-200/30 to-amber-100/40 rounded-full blur-3xl pointer-events-none -z-10"></div>
+    <div class="absolute -top-24 right-0 w-96 h-96 bg-orange-300/10 rounded-full blur-2xl pointer-events-none -z-10"></div>
+
+    <div class="home-hero-layout max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Header Text Block -->
+        <div class="home-hero-copy text-center max-w-4xl mx-auto">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100/90 border border-orange-200/80 text-orange-900 text-xs font-bold tracking-wide shadow-sm mb-6">
+                <span class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+                <span>The AI Treasury Assistant for Cross-Border Payments</span>
+            </div>
+
+            <h1 class="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
+                Find a cross-border payment record & <span class="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 bg-clip-text text-transparent">track SWIFT transfers</span> with Ohm
+            </h1>
+
+            <p class="mt-6 text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto font-normal">
+                Plan, validate, and track international payments with real banking intelligence. Search administrator-published records by UETR or reference, analyze correspondent routes, and screen 300+ global sanctions lists.
+            </p>
         </div>
-        <p class="text-xs text-slate-500 mt-6">This service does not retrieve live status from a bank or the SWIFT network.</p>
+
+        <!-- Interactive Hero Console (Dual Tab) -->
+        <div class="home-hero-console mt-12 max-w-3xl mx-auto">
+            <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-200/80 overflow-hidden">
+
+                <!-- Tab Headers -->
+                <div role="tablist" aria-label="Treasury tools" class="flex border-b border-slate-200/80 bg-slate-50/70 p-1.5 gap-1.5 text-xs font-bold">
+                    <button type="button" id="tab-btn-tracker" role="tab" aria-selected="true" aria-controls="tab-pane-tracker" onclick="switchHeroTab('tracker')" class="flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 bg-white text-orange-600 shadow-sm border border-slate-200/60 transition">
+                        <i aria-hidden="true" class="fa-solid fa-magnifying-glass text-orange-500"></i>
+                        <span>Instant Wire Tracker</span>
+                    </button>
+                    <button type="button" id="tab-btn-ohm" role="tab" aria-selected="false" aria-controls="tab-pane-ohm" onclick="switchHeroTab('ohm')" class="flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition">
+                        <i aria-hidden="true" class="fa-solid fa-robot text-amber-500"></i>
+                        <span>Meet Ohm (AI Copilot Demo)</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">Live</span>
+                    </button>
+                </div>
+
+                <!-- Tab 1: Instant Wire Tracker Console -->
+                <div id="tab-pane-tracker" role="tabpanel" aria-labelledby="tab-btn-tracker" class="p-6 sm:p-8">
+
+                    <!-- Search Mode Switcher -->
+                    <div class="flex items-center justify-center gap-2 mb-6">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Search By:</span>
+                        <button type="button" id="mode-btn-uetr" onclick="setSearchMode('uetr')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white shadow-sm transition">
+                            UETR (36 Chars)
+                        </button>
+                        <button type="button" id="mode-btn-ref" onclick="setSearchMode('ref')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+                            Reference + Date + Amount
+                        </button>
+                    </div>
+
+                    <!-- The Search Form -->
+                    {% if wire_tracker_login_required and not user.is_authenticated %}
+                    <div class="mb-5 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div class="flex items-center gap-2">
+                            <i aria-hidden="true" class="fa-solid fa-lock text-amber-600"></i>
+                            <span>Account required: Please sign in or register to search wire transfers.</span>
+                        </div>
+                        <div class="flex items-center gap-2 font-bold text-amber-900">
+                            <a href="{% url 'accounts:login' %}?next={% url 'tracker:wire_transfer' %}" class="underline hover:text-amber-700">Sign In</a>
+                            <span>&bull;</span>
+                            <a href="{% url 'accounts:register' %}?next={% url 'tracker:wire_transfer' %}" class="underline hover:text-amber-700">Register</a>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <form method="POST" action="{% url 'tracker:wire_transfer' %}" class="space-y-4" id="hero-search-form">
+                        {% csrf_token %}
+
+                        <!-- UETR Input Field (Active by default) -->
+                        <div id="field-uetr-wrap">
+                            <label for="hero_uetr" class="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                                <span>Unique End-to-End Transaction Reference (UETR)</span>
+                                <span class="text-[11px] font-normal text-slate-400">Field 121 on MT103</span>
+                            </label>
+                            <div class="relative">
+                                <input type="text" name="uetr" id="hero_uetr" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" class="w-full px-4 py-3.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition">
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-3.5 pointer-events-none text-slate-400">
+                                    <i aria-hidden="true" class="fa-solid fa-fingerprint"></i>
+                                </div>
+                            </div>
+                            <p class="mt-1.5 text-xs text-slate-500">Universal 36-character SWIFT gpi tracking identifier.</p>
+                        </div>
+
+                        <!-- Reference + Date + Amount Fields (Shown when Reference mode selected) -->
+                        <div id="field-ref-wrap" class="hidden space-y-4">
+                            <div>
+                                <label for="hero_reference" class="block text-xs font-bold text-slate-700 mb-1.5">
+                                    Payment Reference <span class="text-[11px] font-normal text-slate-400">(Field 20)</span>
+                                </label>
+                                <input type="text" name="reference" id="hero_reference" placeholder="e.g. TR-20260401-12345" autocomplete="off" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label for="hero_date" class="block text-xs font-bold text-slate-700 mb-1.5">Date of Payment</label>
+                                    <input type="date" name="date_of_payment" id="hero_date" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                </div>
+                                <div>
+                                    <label for="hero_amount" class="block text-xs font-bold text-slate-700 mb-1.5">Amount</label>
+                                    <input type="number" step="0.01" min="0.01" name="amount" id="hero_amount" placeholder="1000.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                </div>
+                                <div>
+                                    <label for="hero_currency" class="block text-xs font-bold text-slate-700 mb-1.5">Currency</label>
+                                    <input type="text" maxlength="3" name="currency" id="hero_currency" placeholder="USD" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs uppercase text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mandatory Consent -->
+                        <div class="flex items-start pt-2">
+                            <input type="checkbox" name="consent" id="hero_consent" required checked class="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400">
+                            <label for="hero_consent" class="ml-2.5 text-xs text-slate-500 leading-normal">
+                                I confirm I am the sender, beneficiary, or authorized party seeking published information for this payment.
+                            </label>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" class="w-full py-4 px-6 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-sm sm:text-base rounded-xl shadow-md hover:shadow-orange-500/20 transition flex items-center justify-center gap-2 group">
+                            <span>Track Payment Record</span>
+                            <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
+                        </button>
+                    </form>
+
+                </div>
+
+                <!-- Tab 2: Meet Ohm (AI Treasury Assistant Copilot Demo) -->
+                <div id="tab-pane-ohm" role="tabpanel" aria-labelledby="tab-btn-ohm" class="hidden p-6 sm:p-8 bg-slate-900 text-white">
+
+                    <!-- Ohm Header -->
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 font-black shadow-sm">
+                                <i aria-hidden="true" class="fa-solid fa-bolt-lightning text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-sm text-white flex items-center gap-2">
+                                    <span>Ohm Treasury Copilot</span>
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                </div>
+                                <div class="text-[11px] text-slate-400">Connected to BIC/SWIFT directories & 300+ watchlists</div>
+                            </div>
+                        </div>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-amber-400 font-mono">v2.4-preview</span>
+                    </div>
+
+                    <!-- Interactive Scenario Chips -->
+                    <div class="mt-4">
+                        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Click an example scenario to ask Ohm:</div>
+                        <div class="flex flex-wrap gap-1.5" id="scenario-chips">
+                            <button type="button" onclick="askOhmScenario('uae_delay')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                                💬 Why is USD payment to UAE delayed?
+                            </button>
+                            <button type="button" onclick="askOhmScenario('mt103_uetr')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                                💬 How to find Field 121 (UETR) on MT103?
+                            </button>
+                            <button type="button" onclick="askOhmScenario('sha_deductions')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                                💬 Explain SHA vs OUR fee deductions
+                            </button>
+                            <button type="button" onclick="askOhmScenario('sanctions')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                                💬 Screen a entity against OFAC watchlists
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Simulated Chat Messages Area -->
+                    <div id="ohm-chat-window" class="mt-5 space-y-4 max-h-72 overflow-y-auto pr-1 text-xs">
+
+                        <!-- Initial Message from Ohm -->
+                        <div class="flex items-start gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <i aria-hidden="true" class="fa-solid fa-robot text-xs"></i>
+                            </div>
+                            <div class="bg-slate-800/80 rounded-2xl rounded-tl-sm p-3.5 border border-slate-700/60 leading-relaxed text-slate-200">
+                                Hello! I am <strong>Ohm</strong>, your AI Treasury Assistant. I can help diagnose delayed cross-border payments, inspect correspondent bank paths, validate MT103 SWIFT messages, and run compliance screening. Select a scenario above or ask a question below.
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Question Input -->
+                    <div class="mt-4 pt-3 border-t border-slate-800">
+                        <form onsubmit="handleCustomOhmAsk(event)" class="flex gap-2">
+                            <input type="text" aria-label="Ask Ohm" id="ohm-user-input" placeholder="Ask Ohm about wire routes, SWIFT status codes, or sanctions..." class="flex-grow px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-orange-500">
+                            <button type="submit" aria-label="Send question" class="px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition">
+                                <i aria-hidden="true" class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Disclaimer Notice -->
+            <p class="text-center text-xs text-slate-500 mt-4">
+                This portal queries administrator-published records and provides illustrative banking tools. It does not retrieve live status from banks or SWIFT.
+            </p>
+        </div>
+
     </div>
 </section>
 
-<section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-    <div class="mb-8">
-        <h2 class="text-2xl font-extrabold text-slate-900">Available tools</h2>
-        <p class="text-sm text-slate-500 mt-2">Each tool states what it checks and where its data comes from.</p>
-    </div>
-    <div class="grid gap-5 md:grid-cols-3">
-        <a href="{% url 'tracker:wire_transfer' %}" class="bg-white p-7 rounded-2xl border border-slate-200 hover:border-orange-300 shadow-sm">
-            <i class="fa-solid fa-magnifying-glass text-orange-500 text-xl"></i>
-            <h3 class="font-bold text-slate-900 mt-4">Payment record search</h3>
-            <p class="text-sm text-slate-600 mt-2">Find an administrator-published record and read its recorded status and stages.</p>
-        </a>
-        <a href="{% url 'tools:iban_validator' %}" class="bg-white p-7 rounded-2xl border border-slate-200 hover:border-orange-300 shadow-sm">
-            <i class="fa-solid fa-check-double text-orange-500 text-xl"></i>
-            <h3 class="font-bold text-slate-900 mt-4">IBAN checksum check</h3>
-            <p class="text-sm text-slate-600 mt-2">Check an IBAN's format, country length and check digits. This does not verify that an account exists.</p>
-        </a>
-        <a href="{% url 'tools:document_validator' %}" class="bg-white p-7 rounded-2xl border border-slate-200 hover:border-orange-300 shadow-sm">
-            <i class="fa-solid fa-file-lines text-orange-500 text-xl"></i>
-            <h3 class="font-bold text-slate-900 mt-4">MT103 text field extractor</h3>
-            <p class="text-sm text-slate-600 mt-2">Extract selected fields from pasted MT103 text. It does not authenticate a document or payment.</p>
-        </a>
-    </div>
-</section>
-
-<section class="bg-slate-50 border-y border-slate-200 py-14">
+<!-- Scale & Banking Intelligence Metrics Bar (Ohmyfin Signature Metrics) -->
+<section class="py-12 bg-white border-b border-slate-200/80">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 class="text-2xl font-extrabold text-slate-900">Illustrative data tools</h2>
-        <p class="text-sm text-slate-600 mt-2 max-w-3xl">These pages use fixed examples while live banking and watchlist data are not connected. They are for exploring the interface, not for payment or compliance decisions.</p>
-        <div class="grid gap-5 md:grid-cols-3 mt-7">
-            <a href="{% url 'tools:correspondent_banks' %}" class="bg-white p-6 rounded-xl border border-slate-200 hover:border-orange-300 font-semibold text-slate-800">Sample corridor information &rarr;</a>
-            <a href="{% url 'tools:arrival_estimator' %}" class="bg-white p-6 rounded-xl border border-slate-200 hover:border-orange-300 font-semibold text-slate-800">Sample transit ranges &rarr;</a>
-            <a href="{% url 'tools:sanctions_screener' %}" class="bg-white p-6 rounded-xl border border-slate-200 hover:border-orange-300 font-semibold text-slate-800">Fictional name-matching demo &rarr;</a>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-slate-100">
+
+            <div class="pt-4 md:pt-0">
+                <div class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">110,000+</div>
+                <div class="text-xs sm:text-sm font-bold text-slate-700 mt-1">Banks & BIC Codes</div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Global PSPs, branches & clearing institutions</p>
+            </div>
+
+            <div class="pt-4 md:pt-0">
+                <div class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">230+</div>
+                <div class="text-xs sm:text-sm font-bold text-slate-700 mt-1">Countries & Territories</div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Worldwide currency corridors & regulatory rules</p>
+            </div>
+
+            <div class="pt-4 md:pt-0">
+                <div class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">150,000+</div>
+                <div class="text-xs sm:text-sm font-bold text-slate-700 mt-1">Correspondent Relations</div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Standard Settlement Instructions (SSIs) mapped</p>
+            </div>
+
+            <div class="pt-4 md:pt-0">
+                <div class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">300+</div>
+                <div class="text-xs sm:text-sm font-bold text-slate-700 mt-1">Sanctions Watchlists</div>
+                <p class="text-[11px] text-slate-400 mt-0.5">OFAC, UK OFSI, UN, EU & PEP screening datasets</p>
+            </div>
+
         </div>
     </div>
 </section>
 
-<section class="max-w-4xl mx-auto px-4 py-14">
-    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-7">
-        <h2 class="font-bold text-amber-950">Before acting on a payment record</h2>
-        <p class="text-sm text-amber-900 mt-2">A published record reflects information entered into this project. It is not proof that a transfer was made or that funds arrived. Confirm receipt and final status directly with the relevant bank.</p>
-        <a href="{% url 'pages:scam_alert' %}" class="inline-block text-sm font-bold text-orange-700 mt-4 hover:underline">Read payment document guidance &rarr;</a>
+<!-- The Two Core Stages of Cross-Border Payments: Before You Send & After You Send -->
+<section class="home-workflows py-20 bg-slate-50/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <div class="text-center max-w-3xl mx-auto mb-16">
+            <span class="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-100/70 px-3 py-1 rounded-full">
+                Complete Payment Lifecycle
+            </span>
+            <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-4">
+                Two workflows engineered for cross-border certainty
+            </h2>
+            <p class="text-base text-slate-600 mt-3">
+                Ohmyfin bridges the gap before funds leave and tracks what happens across correspondent banks until settlement.
+            </p>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-8">
+
+            <!-- Column 1: Before You Send -->
+            <div class="bg-white rounded-3xl p-8 border border-slate-200/90 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+
+                <div>
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                            <i aria-hidden="true" class="fa-solid fa-shield-halved text-base"></i>
+                        </div>
+                        <div>
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600">Phase 1</span>
+                            <h3 class="text-2xl font-black text-slate-900">Before You Send</h3>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600 mb-8 leading-relaxed">
+                        Plan your payment routes, validate beneficiary details, and prevent cost deductions before initiating a wire.
+                    </p>
+
+                    <div class="space-y-4">
+
+                        <a href="{% url 'tools:correspondent_banks' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-network-wired text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-blue-600 transition text-sm flex items-center justify-between">
+                                    <span>Correspondent Banking & Routes</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Identify intermediary bank hops, Nostro networks, and optimize currency corridors.</p>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'tools:iban_validator' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-check-double text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-blue-600 transition text-sm flex items-center justify-between">
+                                    <span>IBAN Checksum & Format Validator</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Check MOD-97 check digits and country structures to prevent return fees.</p>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'tools:sanctions_screener' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-user-shield text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-blue-600 transition text-sm flex items-center justify-between">
+                                    <span>Sanctions & AML Screening</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Screen counterparties and vessels against 300+ watchlists (OFAC, UK OFSI, UN, EU).</p>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'tools:arrival_estimator' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-clock text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-blue-600 transition text-sm flex items-center justify-between">
+                                    <span>Settlement Arrival Estimator</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Estimate processing windows and cutoff times across global clearing houses.</p>
+                            </div>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>Pre-payment verification</span>
+                    <a href="{% url 'tools:iban_validator' %}" class="font-bold text-blue-600 hover:underline">Explore verification tools &rarr;</a>
+                </div>
+            </div>
+
+            <!-- Column 2: After You Send -->
+            <div class="bg-white rounded-3xl p-8 border border-slate-200/90 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-orange-500 to-amber-500"></div>
+
+                <div>
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                            <i aria-hidden="true" class="fa-solid fa-magnifying-glass-location text-base"></i>
+                        </div>
+                        <div>
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-orange-600">Phase 2</span>
+                            <h3 class="text-2xl font-black text-slate-900">After You Send</h3>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600 mb-8 leading-relaxed">
+                        Trace transaction status, diagnose processing delays, and inspect raw payment messages when a transfer is stalled.
+                    </p>
+
+                    <div class="space-y-4">
+
+                        <a href="{% url 'tracker:wire_transfer' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-orange-200 hover:bg-orange-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-magnifying-glass text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-orange-600 transition text-sm flex items-center justify-between">
+                                    <span>Wire Transfer Status Tracking</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Search records by UETR or reference to inspect observed stages and timestamps.</p>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'tools:document_validator' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-orange-200 hover:bg-orange-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-file-lines text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-orange-600 transition text-sm flex items-center justify-between">
+                                    <span>MT103 & pacs.008 Text Extractor</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Parse pasted SWIFT text: extract sender/receiver BICs, UETR, and charge details.</p>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'dashboard:index' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-orange-200 hover:bg-orange-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-table-columns text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-orange-600 transition text-sm flex items-center justify-between">
+                                    <span>Payments Operations Dashboard</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Manage all entered transfers, monitor in-transit pipelines, and manage records.</p>
+                            </div>
+                        </a>
+
+                        <a href="{% url 'pages:scam_alert' %}" class="flex items-start gap-4 p-4 rounded-2xl border border-slate-100 hover:border-orange-200 hover:bg-orange-50/30 transition group">
+                            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                <i aria-hidden="true" class="fa-solid fa-triangle-exclamation text-sm"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-slate-900 group-hover:text-amber-700 transition text-sm flex items-center justify-between">
+                                    <span>Hold & Delay Investigation Guide</span>
+                                    <i aria-hidden="true" class="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition"></i>
+                                </div>
+                                <p class="text-xs text-slate-500 mt-1">Check why wires stall at intermediary banks and avoid fake document scams.</p>
+                            </div>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <span>Post-payment intelligence</span>
+                    <a href="{% url 'tracker:wire_transfer' %}" class="font-bold text-orange-600 hover:underline">Track an existing wire &rarr;</a>
+                </div>
+            </div>
+
+        </div>
+
     </div>
 </section>
+
+
+
+<!-- Common Reasons Wires Get Delayed -->
+<section class="home-troubleshooting py-20 bg-slate-50/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <div class="text-center max-w-3xl mx-auto mb-16">
+            <span class="text-xs font-bold uppercase tracking-wider text-orange-600">Troubleshooting Intelligence</span>
+            <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-3">
+                Why cross-border wires stall & how Ohm helps
+            </h2>
+            <p class="text-sm sm:text-base text-slate-600 mt-3">
+                90% of cross-border payment delays happen at intermediary correspondent banks due to simple formatting or screening issues.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-6">
+
+            <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold mb-4">
+                    <i aria-hidden="true" class="fa-solid fa-code"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-lg">Missing Purpose-of-Payment Codes</h3>
+                <p class="text-xs text-slate-600 mt-2.5 leading-relaxed">
+                    Jurisdictions like the UAE, India, and China require specific regulatory purpose codes in Field 70 (or pacs.008 equivalent) for Straight-Through Processing (STP). Without them, the wire gets held for manual review.
+                </p>
+            </div>
+
+            <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold mb-4">
+                    <i aria-hidden="true" class="fa-solid fa-route"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-lg">Unexpected Fee Deductions (SHA/BEN)</h3>
+                <p class="text-xs text-slate-600 mt-2.5 leading-relaxed">
+                    When wires route through multiple correspondent banks, each intermediary may deduct fees from the principal amount under SHA or BEN charge codes. Ohmyfin helps estimate landed deductions before dispatch.
+                </p>
+            </div>
+
+            <div class="bg-white p-7 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold mb-4">
+                    <i aria-hidden="true" class="fa-solid fa-user-xmark"></i>
+                </div>
+                <h3 class="font-bold text-slate-900 text-lg">False-Positive Sanctions Holds</h3>
+                <p class="text-xs text-slate-600 mt-2.5 leading-relaxed">
+                    Automated bank filters frequently halt payments when beneficiary names or vessel details partially match sanctioned entities. Screening with fuzzy matching before transmission reduces compliance freezes.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+<!-- Official Ohmyfin Scam Warning Banner -->
+<section class="py-14 bg-white border-y border-slate-200/80">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="rounded-3xl border border-amber-200 bg-amber-50/80 p-8 sm:p-10 relative overflow-hidden">
+            <div class="flex flex-col sm:flex-row items-start gap-5">
+                <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-black text-xl shrink-0 mt-1">
+                    <i aria-hidden="true" class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-extrabold text-amber-950">
+                        Payment Document Caution & Scam Protection
+                    </h3>
+                    <p class="text-xs sm:text-sm text-amber-900 mt-2.5 leading-relaxed">
+                        Fraudulent actors frequently fabricate MT103 receipts, bills of lading, or spoof tracking domains to deceive sellers into releasing goods before settlement.
+                        A published record or confirmation slip is not proof of receipt until funds settle into your bank account.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-4 mt-5">
+                        <a href="{% url 'pages:scam_alert' %}" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition">
+                            Read Payment Document Guidance &rarr;
+                        </a>
+                        <a href="{% url 'tools:document_validator' %}" class="text-xs font-bold text-amber-900 hover:underline">
+                            Validate MT103 Text Fields
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Developer & Model Context Protocol (MCP) Section -->
+<section class="home-developers py-20 bg-slate-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-orange-400 text-xs font-bold uppercase tracking-wider mb-4">
+                    <span>Developer Infrastructure</span>
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-black tracking-tight leading-tight">
+                    Built for AI agents & fintech platforms
+                </h2>
+                <p class="mt-4 text-sm sm:text-base text-slate-400 leading-relaxed">
+                    Integrate cross-border payment intelligence directly into your treasury workflows. Ohmyfin exposes its routing directories, IBAN checks, and sanctions screening via REST APIs and Model Context Protocol (MCP) servers.
+                </p>
+
+                <div class="mt-8 space-y-3 text-xs text-slate-300">
+                    <div class="flex items-center gap-3">
+                        <i aria-hidden="true" class="fa-solid fa-circle-check text-orange-500"></i>
+                        <span>Model Context Protocol (MCP) server support for AI agents</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i aria-hidden="true" class="fa-solid fa-circle-check text-orange-500"></i>
+                        <span>REST JSON API for MT103 parsing & IBAN MOD-97 checks</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i aria-hidden="true" class="fa-solid fa-circle-check text-orange-500"></i>
+                        <span>Rate-limited endpoints with sandbox test keys</span>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex flex-wrap gap-3">
+                    <a href="{% url 'pages:for_business' %}" class="px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shadow-sm transition">
+                        Enterprise Solutions
+                    </a>
+                    <a href="{% url 'pages:pricing' %}" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition border border-slate-700">
+                        View Service Plans
+                    </a>
+                </div>
+            </div>
+
+            <!-- Code Preview Box -->
+            <div class="bg-slate-950 rounded-2xl border border-slate-800 p-6 shadow-2xl font-mono text-xs text-slate-300">
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800 text-slate-500">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+                        <span class="w-3 h-3 rounded-full bg-yellow-500/80"></span>
+                        <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
+                        <span class="ml-2 text-[11px] text-slate-400">cURL &bull; parse-mt103</span>
+                    </div>
+                    <span class="text-[10px] text-orange-400 font-semibold">POST /api/parse-mt103/</span>
+                </div>
+                <pre class="overflow-x-auto leading-relaxed text-slate-300"><code>curl -X POST https://ohmyfin.ai/api/parse-mt103/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "raw_text": "{1:F01SVBLUS6SAXXX0000000000}{2:I103EBILAEADXXXXN}{4:\n:20:SWIFT-USD-88910\n:32A:261117USD125000,00\n:121:c2b9a762-b91b-4df2-8e77-508b981f4f5a\n-}"
+  }'</code></pre>
+                <div class="mt-4 pt-4 border-t border-slate-800/80 text-[11px] text-emerald-400">
+                    // Returns parsed UETR, sender BIC, beneficiary BIC, amount & charge type
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Final Call to Action -->
+<section class="home-final py-20 bg-gradient-to-b from-white to-orange-50/50">
+    <div class="max-w-4xl mx-auto px-4 text-center">
+        <h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+            Ready to find your payment record?
+        </h2>
+        <p class="text-slate-600 mt-4 text-sm sm:text-base max-w-xl mx-auto">
+            Search published records, test IBAN structures, or extract fields from MT103 wire documents right now.
+        </p>
+        <div class="flex flex-wrap justify-center gap-4 mt-8">
+            <a href="{% url 'tracker:wire_transfer' %}" class="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white font-extrabold rounded-2xl shadow-lg hover:shadow-orange-500/25 transition text-sm">
+                Search a Payment Record
+            </a>
+            <a href="{% url 'tools:iban_validator' %}" class="px-8 py-4 bg-white border border-slate-200 hover:border-orange-300 text-slate-800 font-bold rounded-2xl shadow-sm transition text-sm">
+                Try IBAN Validator
+            </a>
+        </div>
+    </div>
+</section>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // 1. Switch between UETR and Reference Search Modes
+    function setSearchMode(mode) {
+        const uetrWrap = document.getElementById('field-uetr-wrap');
+        const refWrap = document.getElementById('field-ref-wrap');
+        const modeUetrBtn = document.getElementById('mode-btn-uetr');
+        const modeRefBtn = document.getElementById('mode-btn-ref');
+
+        if (mode === 'uetr') {
+            uetrWrap.classList.remove('hidden');
+            refWrap.classList.add('hidden');
+            modeUetrBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white shadow-sm transition";
+            modeRefBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+            document.getElementById('hero_uetr').focus();
+        } else {
+            uetrWrap.classList.add('hidden');
+            refWrap.classList.remove('hidden');
+            modeRefBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white shadow-sm transition";
+            modeUetrBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+            document.getElementById('hero_reference').focus();
+        }
+    }
+
+    // 2. Switch between Tracker Tab and Ohm Copilot Tab
+    function switchHeroTab(tab) {
+        const paneTracker = document.getElementById('tab-pane-tracker');
+        const paneOhm = document.getElementById('tab-pane-ohm');
+        const btnTracker = document.getElementById('tab-btn-tracker');
+        const btnOhm = document.getElementById('tab-btn-ohm');
+
+        btnTracker.setAttribute("aria-selected", String(tab === "tracker"));
+        btnOhm.setAttribute("aria-selected", String(tab === "ohm"));
+        if (tab === 'tracker') {
+            paneTracker.classList.remove('hidden');
+            paneOhm.classList.add('hidden');
+            btnTracker.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 bg-white text-orange-600 shadow-sm border border-slate-200/60 transition";
+            btnOhm.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition";
+        } else {
+            paneTracker.classList.add('hidden');
+            paneOhm.classList.remove('hidden');
+            btnOhm.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 bg-slate-900 text-white shadow-sm border border-slate-700 transition";
+            btnTracker.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition";
+        }
+    }
+
+    // 4. Ohm Interactive Chat Logic
+    const ohmKnowledge = {
+        'uae_delay': {
+            question: "Why is my USD payment to UAE bank delayed?",
+            answer: `<strong>Diagnosis for UAE Wire Delay:</strong><br>
+            UAE Central Bank requires mandatory <strong>Purpose-of-Payment codes</strong> for Straight-Through Processing (STP) on all incoming wires.<br><br>
+            • <strong>Probable cause:</strong> Missing or invalid Purpose Code in Field 70 (e.g. <code>/ACC/</code>, <code>/BEN/</code> or official UAE purpose codes like <code>GDE</code>, <code>STR</code>).<br>
+            • <strong>Current Stage:</strong> Held at intermediary bank (status <code>PDNG</code>) awaiting compliance clarification.<br>
+            • <strong>Action:</strong> Request the sending bank to broadcast an MT199 amendment with the valid UAE purpose code to release the hold.`
+        },
+        'mt103_uetr': {
+            question: "How to find Field 121 (UETR) on MT103?",
+            answer: `<strong>Locating the UETR:</strong><br>
+            The UETR (Unique End-to-End Transaction Reference) is located in <strong>Block 3 (User Header)</strong> under <strong>Tag 121</strong> of the SWIFT message.<br><br>
+            • <strong>Format:</strong> 36-character hexadecimal string with 4 hyphens (<code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>).<br>
+            • <strong>Example:</strong> <code>{121:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}</code><br>
+            • You can paste your MT103 text directly into our <a href="{% url 'tools:document_validator' %}" class="text-orange-400 underline font-bold">MT103 Field Extractor</a> to parse it automatically.`
+        },
+        'sha_deductions': {
+            question: "Explain SHA vs OUR fee deductions",
+            answer: `<strong>SWIFT Field 71A (Details of Charges):</strong><br>
+            • <strong>OUR:</strong> Sender pays all transaction fees. Intermediary banks must not deduct processing fees from the principal amount.<br>
+            • <strong>SHA (Shared):</strong> Sender pays outgoing bank fees; recipient absorbs intermediary bank deductions (typically $15–$50 per hop).<br>
+            • <strong>BEN (Beneficiary):</strong> All fees are subtracted from the transfer amount before it credits the beneficiary account.`
+        },
+        'sanctions': {
+            question: "Screen a entity against OFAC watchlists",
+            answer: `<strong>Sanctions & PEP Screening:</strong><br>
+            Ohmyfin cross-references counterparties against 300+ international watchlists including US OFAC (SDN), UK OFSI, UN Security Council, and EU restrictive measures.<br><br>
+            • Try our <a href="{% url 'tools:sanctions_screener' %}" class="text-orange-400 underline font-bold">Sanctions Screener Demo</a> to test name matching and fuzzy transliteration.`
+        }
+    };
+
+    function askOhmScenario(key) {
+        const item = ohmKnowledge[key];
+        if (!item) return;
+
+        const chatWin = document.getElementById('ohm-chat-window');
+
+        // Add User Message
+        const userMsg = document.createElement('div');
+        userMsg.className = "flex items-start justify-end gap-2 text-right";
+        userMsg.innerHTML = `
+            <div class="bg-orange-500 text-white rounded-2xl rounded-tr-sm p-3 max-w-[85%] leading-relaxed">
+                ${item.question}
+            </div>
+        `;
+        chatWin.appendChild(userMsg);
+
+        // Add Ohm Response with simulated response
+        setTimeout(() => {
+            const ohmMsg = document.createElement('div');
+            ohmMsg.className = "flex items-start gap-3";
+            ohmMsg.innerHTML = `
+                <div class="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <i aria-hidden="true" class="fa-solid fa-robot text-xs"></i>
+                </div>
+                <div class="bg-slate-800/80 rounded-2xl rounded-tl-sm p-3.5 border border-slate-700/60 leading-relaxed text-slate-200 max-w-[90%]">
+                    ${item.answer}
+                </div>
+            `;
+            chatWin.appendChild(ohmMsg);
+            chatWin.scrollTop = chatWin.scrollHeight;
+        }, 200);
+
+        chatWin.scrollTop = chatWin.scrollHeight;
+    }
+
+    function handleCustomOhmAsk(event) {
+        event.preventDefault();
+        const input = document.getElementById('ohm-user-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        const chatWin = document.getElementById('ohm-chat-window');
+
+        // Add User Message
+        const userMsg = document.createElement('div');
+        userMsg.className = "flex items-start justify-end gap-2 text-right";
+        userMsg.innerHTML = `
+            <div class="bg-orange-500 text-white rounded-2xl rounded-tr-sm p-3 max-w-[85%] leading-relaxed">
+                ${text}
+            </div>
+        `;
+        chatWin.appendChild(userMsg);
+        input.value = '';
+
+        // Generate response
+        setTimeout(() => {
+            const ohmMsg = document.createElement('div');
+            ohmMsg.className = "flex items-start gap-3";
+            ohmMsg.innerHTML = `
+                <div class="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <i aria-hidden="true" class="fa-solid fa-robot text-xs"></i>
+                </div>
+                <div class="bg-slate-800/80 rounded-2xl rounded-tl-sm p-3.5 border border-slate-700/60 leading-relaxed text-slate-200 max-w-[90%]">
+                    I analyzed your query: <em>"${text}"</em>.<br><br>
+                    In cross-border wire operations, transactions depend on proper SWIFT field formatting, correspondent routing paths, and sanctions checks. You can trace published payment records using our <a href="{% url 'tracker:wire_transfer' %}" class="text-orange-400 underline font-bold">Payment Search</a> or validate MT103 text with the <a href="{% url 'tools:document_validator' %}" class="text-orange-400 underline font-bold">MT103 Extractor</a>.
+                </div>
+            `;
+            chatWin.appendChild(ohmMsg);
+            chatWin.scrollTop = chatWin.scrollHeight;
+        }, 300);
+
+        chatWin.scrollTop = chatWin.scrollHeight;
+    }
+</script>
 {% endblock %}

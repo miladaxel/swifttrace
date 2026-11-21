@@ -253,3 +253,47 @@ class SearchRateWindow(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=['lookup_key', 'window_start'], name='unique_wire_search_window')]
         indexes = [models.Index(fields=['window_start'], name='wire_search_window_idx')]
+
+
+class TrackerSettings(models.Model):
+    require_login = models.BooleanField(
+        default=False,
+        verbose_name="Require login to use Wire Tracker",
+        help_text="If enabled, users must register and log in to search or track wire transfers. If disabled (default), anyone can search and track wires without an account."
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='tracker_settings_updates',
+        verbose_name="Last updated by"
+    )
+
+    class Meta:
+        verbose_name = "Wire Tracker Setting"
+        verbose_name_plural = "Wire Tracker Settings"
+
+    def __str__(self):
+        status = "Required" if self.require_login else "Not Required (Public)"
+        return f"Wire Tracker Login Requirement: {status}"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass  # Prevent deleting singleton
+
+    @classmethod
+    def get_settings(cls):
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={'require_login': False}
+        )
+        return obj
+
+    @classmethod
+    def is_login_required(cls):
+        return cls.get_settings().require_login

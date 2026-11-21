@@ -1,0 +1,11 @@
+{
+  "name": "ohmyfin-frontend",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i static/css/tailwind.css -o static/css/utilities.css --minify",
+    "watch:css": "npm run build:css -- --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from tracker.models import WireTransfer
+from accounts.models import MembershipTier
 
 
 def home_view(request):
@@ -7,11 +8,9 @@ def home_view(request):
     Public homepage for the administrator-managed payment record portal.
     """
     total_tracked = WireTransfer.objects.filter(is_published=True).count()
-    recent_wires = WireTransfer.objects.filter(is_published=True)[:4]
 
     return render(request, 'pages/home.html', {
         'total_tracked': total_tracked,
-        'recent_wires': recent_wires,
     })
 
 
@@ -31,9 +30,10 @@ def about_view(request):
 
 def pricing_view(request):
     """
-    Describe service availability without inventing plans or prices.
+    Show the currently configured monthly usage limits.
     """
-    return render(request, 'pages/pricing.html')
+    tiers = [MembershipTier.objects.get(level=level) for level, _ in MembershipTier.LEVELS]
+    return render(request, 'pages/pricing.html', {'tiers': tiers})
 
 
 def scam_alert_view(request):

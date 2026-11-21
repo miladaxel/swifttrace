@@ -70,3 +70,9 @@ htmlcov/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Frontend build dependencies and local visual inspection
+node_modules/
+.design-reference/
+.design-qa/
+reference-home.html

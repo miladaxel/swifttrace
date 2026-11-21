@@ -1,75 +1,137 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Wire Records{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #fbfbfd; }
-    </style>
+    <title>{% block title %}Ohmyfin | AI Treasury Assistant & Wire Records{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/favicon.svg' %}">
+
+    <link rel="stylesheet" href="{% static 'css/fonts.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
+    <link rel="stylesheet" href="{% static 'css/site.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen flex flex-col text-slate-800 antialiased">
-    <header class="bg-white border-b border-slate-100 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-20 flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3">
-            <a href="{% url 'pages:home' %}" class="flex flex-col shrink-0">
-                <span class="text-2xl font-extrabold text-orange-500 tracking-tight">Wire Records</span>
-                <span class="text-[11px] text-slate-500">Independent payment record prototype</span>
-            </a>
-            <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium text-slate-700" aria-label="Main navigation">
-                <a href="{% url 'tracker:wire_transfer' %}" class="text-orange-600 hover:text-orange-700">Find a payment</a>
-                <a href="{% url 'tools:iban_validator' %}" class="hover:text-orange-600">IBAN check</a>
-                <a href="{% url 'tools:document_validator' %}" class="hover:text-orange-600">MT103 extractor</a>
-                <a href="{% url 'tools:correspondent_banks' %}" class="hover:text-orange-600">Sample corridors</a>
-                <a href="{% url 'tools:sanctions_screener' %}" class="hover:text-orange-600">Sample name match</a>
-                <a href="{% url 'pages:for_business' %}" class="hover:text-orange-600">For teams</a>
-                {% if can_view_transfer_records %}
-                <a href="{% url 'dashboard:index' %}" class="hover:text-orange-600">Admin dashboard</a>
-                {% endif %}
-            </nav>
-        </div>
-    </header>
+<body data-page="{{ request.resolver_match.url_name }}" class="min-h-screen flex flex-col antialiased selection:bg-orange-500 selection:text-white">
 
-    <main class="flex-grow">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    {% include 'includes/header.html' %}
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="flex-grow">
         {% if messages %}
-        <div class="max-w-2xl mx-auto px-4 mt-6">
+        <div class="max-w-4xl mx-auto px-4 mt-6">
             {% for message in messages %}
-            <div class="p-4 rounded-xl text-sm font-medium {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
-                {{ message }}
+            <div class="p-4 rounded-xl text-sm font-medium shadow-sm {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% elif message.tags == 'warning' %}bg-amber-50 text-amber-800 border border-amber-200{% elif message.tags == 'info' %}bg-blue-50 text-blue-800 border border-blue-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %} flex items-center gap-2.5">
+                <i aria-hidden="true" class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark text-red-500{% elif message.tags == 'warning' %}fa-triangle-exclamation text-amber-500{% elif message.tags == 'info' %}fa-circle-info text-blue-500{% else %}fa-circle-check text-emerald-500{% endif %}"></i>
+                <span>{{ message }}</span>
             </div>
             {% endfor %}
         </div>
         {% endif %}
+
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-white border-t border-slate-200 py-10 mt-16 text-sm text-slate-600">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-8 md:grid-cols-3">
-            <div>
-                <div class="text-lg font-bold text-slate-900">Wire Records</div>
-                <p class="mt-2 text-xs leading-relaxed">A prototype for finding payment records entered by an administrator. It does not connect to banks or SWIFT and does not transfer funds.</p>
-            </div>
-            <div>
-                <div class="font-bold text-slate-900 mb-2">Explore</div>
-                <div class="flex flex-col gap-2 text-xs">
-                    <a href="{% url 'tracker:wire_transfer' %}" class="hover:text-orange-600">Find a payment record</a>
-                    <a href="{% url 'tools:iban_validator' %}" class="hover:text-orange-600">IBAN checksum check</a>
-                    <a href="{% url 'tools:arrival_estimator' %}" class="hover:text-orange-600">Sample transit ranges</a>
-                    <a href="{% url 'pages:scam_alert' %}" class="hover:text-orange-600">Payment document guidance</a>
+    <!-- Global Footer -->
+    <footer class="site-footer bg-white border-t border-slate-200/80 py-16 mt-20 text-sm text-slate-600">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="footer-grid grid gap-10 sm:grid-cols-2 lg:grid-cols-4 pb-12 border-b border-slate-100">
+
+                <!-- Col 1: Brand & Identity -->
+                <div class="space-y-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold">
+                            <i aria-hidden="true" class="fa-solid fa-bolt-lightning text-xs"></i>
+                        </div>
+                        <span class="text-xl font-black text-slate-900 tracking-tight">Ohmy<span class="text-orange-500">fin</span></span>
+                    </div>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        The AI Treasury Assistant for cross-border payments. Banking intelligence, correspondent routes, and payment status verification.
+                    </p>
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] font-mono text-slate-600">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span>Platform Status: Operational</span>
+                    </div>
                 </div>
-            </div>
-            <div>
-                <div class="font-bold text-slate-900 mb-2">Project</div>
-                <div class="flex flex-col gap-2 text-xs">
-                    <a href="{% url 'pages:about' %}" class="hover:text-orange-600">About this project</a>
-                    <a href="{% url 'pages:pricing' %}" class="hover:text-orange-600">Service availability</a>
+
+                <!-- Col 2: Tools & Intelligence -->
+                <div>
+                    <div class="font-bold text-slate-900 text-xs uppercase tracking-wider mb-4">Tools & Intelligence</div>
+                    <ul class="space-y-2.5 text-xs">
+                        <li><a href="{% url 'tracker:wire_transfer' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Find a payment record</a></li>
+                        <li><a href="{% url 'tools:iban_validator' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> IBAN checksum validator</a></li>
+                        <li><a href="{% url 'tools:document_validator' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> MT103 text extractor</a></li>
+                        <li><a href="{% url 'tools:correspondent_banks' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Sample corridors</a></li>
+                        <li><a href="{% url 'tools:sanctions_screener' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Sample sanctions screen</a></li>
+                        <li><a href="{% url 'tools:arrival_estimator' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Settlement transit ranges</a></li>
+                    </ul>
                 </div>
-                <p class="text-xs mt-4 leading-relaxed">This independent prototype is not affiliated with Ohmyfin Limited or S.W.I.F.T. SC. Confirm payment status with your bank.</p>
+
+                <div>
+                    <div class="font-bold text-slate-900 text-xs uppercase tracking-wider mb-4">Services</div>
+                    <ul class="space-y-2.5 text-xs">
+                        <li><a href="{% url 'pages:for_business' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> For teams & treasury</a></li>
+                        <li><a href="{% url 'pages:pricing' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Service availability</a></li>
+                    </ul>
+                </div>
+
+                <!-- Col 3: Company & Governance -->
+                <div>
+                    <div class="font-bold text-slate-900 text-xs uppercase tracking-wider mb-4">Company & Safety</div>
+                    <ul class="space-y-2.5 text-xs">
+                        <li><a href="{% url 'pages:about' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> About Ohmyfin prototype</a></li>
+                        <li><a href="{% url 'pages:scam_alert' %}" class="hover:text-amber-600 text-amber-700 font-semibold transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-shield-halved text-[10px]"></i> Scam alert & fake MT103s</a></li>
+                        {% if request.user.is_authenticated %}
+                        <li><a href="{% url 'accounts:profile' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> My account profile</a></li>
+                        {% if request.user.is_staff %}
+                        <li><a href="{% url 'accounts:user_list' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> User management</a></li>
+                        {% endif %}
+                        {% else %}
+                        <li><a href="{% url 'accounts:login' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Sign in</a></li>
+                        <li><a href="{% url 'accounts:register' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Register account</a></li>
+                        {% endif %}
+                        {% if can_view_transfer_records %}
+                        <li><a href="{% url 'dashboard:index' %}" class="hover:text-orange-600 transition flex items-center gap-1.5"><i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i> Staff dashboard</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+                <!-- Col 4: Platform & Neutrality Notice -->
+                <div class="space-y-3">
+                    <div class="font-bold text-slate-900 text-xs uppercase tracking-wider mb-4">Neutrality Notice</div>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        This independent prototype is not affiliated with Ohmyfin Limited or S.W.I.F.T. SC.
+                    </p>
+                    <p class="text-xs text-slate-500 leading-relaxed">
+                        It does not connect to live banking networks or move funds. Searches reflect records published by an administrator. Always confirm payment status directly with your bank.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Bottom Copyright Bar -->
+            <div class="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+                <div>
+                    &copy; 2026 Ohmyfin Prototype. Independent cross-border payment record platform.
+                </div>
+                <div class="flex items-center gap-6">
+                    <a href="{% url 'pages:about' %}" class="hover:text-slate-600 transition">About</a>
+                    <a href="{% url 'pages:scam_alert' %}" class="hover:text-slate-600 transition">Security Guidance</a>
+                    {% if request.user.is_authenticated %}
+                    <a href="{% url 'accounts:profile' %}" class="hover:text-slate-600 transition">My Account</a>
+                    {% else %}
+                    <a href="{% url 'accounts:login' %}" class="hover:text-slate-600 transition">Sign In</a>
+                    {% endif %}
+                    <a href="{% url 'tracker:wire_transfer' %}" class="hover:text-slate-600 transition">Track Wire</a>
+                </div>
             </div>
         </div>
     </footer>
+
+    <script src="{% static 'js/site.js' %}" defer></script>
+
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

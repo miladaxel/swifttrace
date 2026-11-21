@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management | Ohmyfin{% endblock %}
+
+{% block content %}
+<div class="account-page py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+
+    <!-- Header & Action -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                <a href="{% url 'pages:home' %}" class="hover:text-slate-800 transition">Home</a>
+                <i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i>
+                <span class="text-slate-800 font-semibold">User Management</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">User Management</h1>
+            <p class="text-sm text-slate-500 mt-1">Review, manage, search, and configure user accounts and platform permissions.</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <a href="{% url 'accounts:user_create' %}" class="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
+                <i aria-hidden="true" class="fa-solid fa-user-plus text-xs"></i>
+                <span>Add New User</span>
+            </a>
+            <a href="{% url 'admin:auth_user_changelist' %}" target="_blank" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition flex items-center gap-2">
+                <i aria-hidden="true" class="fa-solid fa-sliders text-xs"></i>
+                <span>Django Admin</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-slate-400 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider">Total Users</span>
+                <i aria-hidden="true" class="fa-solid fa-users text-slate-400"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-slate-900">{{ total_users }}</div>
+            <div class="text-xs text-slate-500 mt-1">Registered in system</div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-emerald-500 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Accounts</span>
+                <i aria-hidden="true" class="fa-solid fa-user-check"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-emerald-600">{{ active_users }}</div>
+            <div class="text-xs text-slate-500 mt-1">Can log in & perform actions</div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-blue-500 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Staff Members</span>
+                <i aria-hidden="true" class="fa-solid fa-user-tie"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-blue-600">{{ staff_users }}</div>
+            <div class="text-xs text-slate-500 mt-1">Internal operations & review</div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between text-purple-500 mb-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Superusers</span>
+                <i aria-hidden="true" class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div class="text-3xl font-extrabold text-purple-600">{{ superuser_count }}</div>
+            <div class="text-xs text-slate-500 mt-1">Full platform administration</div>
+        </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+        <!-- Role & Status Pills -->
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Role:</span>
+            <a href="?role=all{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'all' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                All
+            </a>
+            <a href="?role=superuser{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'superuser' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Superusers
+            </a>
+            <a href="?role=staff{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'staff' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Staff
+            </a>
+            <a href="?role=regular{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'regular' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Regular
+            </a>
+
+            <div class="h-4 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Status:</span>
+            <a href="?status=all{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'all' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                All
+            </a>
+            <a href="?status=active{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'active' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Active
+            </a>
+            <a href="?status=inactive{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'inactive' %}bg-red-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                Inactive
+            </a>
+        </div>
+
+        <!-- Search Input Form -->
+        <form method="GET" action="{% url 'accounts:user_list' %}" class="relative w-full md:w-80">
+            {% if role_filter != 'all' %}<input type="hidden" name="role" value="{{ role_filter }}">{% endif %}
+            {% if status_filter != 'all' %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+            <input
+                type="text"
+                name="q"
+                value="{{ query }}"
+                placeholder="Search username, email, name..."
+                class="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800"
+            >
+            <i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+        </form>
+
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-3.5 px-6">User</th>
+                        <th class="py-3.5 px-6">Email Address</th>
+                        <th class="py-3.5 px-6">Role & Permissions</th>
+                        <th class="py-3.5 px-6">Membership</th>
+                        <th class="py-3.5 px-6">Status</th>
+                        <th class="py-3.5 px-6">Date Joined</th>
+                        <th class="py-3.5 px-6">Last Login</th>
+                        <th class="py-3.5 px-6 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-xs text-slate-700">
+                    {% for u in users %}
+                    <tr class="hover:bg-slate-50/70 transition">
+
+                        <!-- User Name & Avatar -->
+                        <td class="py-4 px-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                                    {{ u.username|make_list|first|upper }}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                                        <span>{{ u.username }}</span>
+                                        {% if u == request.user %}
+                                        <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">You</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-[11px] text-slate-500">
+                                        {{ u.get_full_name|default:"—" }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Email -->
+                        <td class="py-4 px-6 font-mono text-slate-600">
+                            {{ u.email|default:"—" }}
+                        </td>
+
+                        <!-- Role -->
+                        <td class="py-4 px-6">
+                            {% if u.is_superuser %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                <i aria-hidden="true" class="fa-solid fa-crown text-[9px]"></i>
+                                Superuser
+                            </span>
+                            {% elif u.is_staff %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                <i aria-hidden="true" class="fa-solid fa-id-badge text-[9px]"></i>
+                                Staff Member
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                <i aria-hidden="true" class="fa-solid fa-user text-[9px]"></i>
+                                Regular User
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <td class="py-4 px-6 font-semibold text-slate-700">{{ u.membership.tier|default:"Free" }}</td>
+
+                        <!-- Status -->
+                        <td class="py-4 px-6">
+                            {% if u.is_active %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Active
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Date Joined -->
+                        <td class="py-4 px-6 font-mono text-slate-500">
+                            {{ u.date_joined|date:"Y-m-d" }}
+                        </td>
+
+                        <!-- Last Login -->
+                        <td class="py-4 px-6 font-mono text-slate-500">
+                            {% if u.last_login %}
+                            {{ u.last_login|date:"Y-m-d H:i" }}
+                            {% else %}
+                            <span class="text-slate-400">Never</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="py-4 px-6 text-right">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <a href="{% url 'accounts:user_edit' u.pk %}" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition" title="Edit User">
+                                    <i aria-hidden="true" class="fa-solid fa-pen-to-square text-xs"></i>
+                                </a>
+
+                                <a href="{% url 'accounts:user_password' u.pk %}" class="p-2 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="Reset Password">
+                                    <i aria-hidden="true" class="fa-solid fa-key text-xs"></i>
+                                </a>
+
+                                {% if u != request.user %}
+                                <a href="{% url 'accounts:user_toggle_status' u.pk %}" class="p-2 {% if u.is_active %}text-emerald-600 hover:text-red-600 hover:bg-red-50{% else %}text-slate-400 hover:text-emerald-600 hover:bg-emerald-50{% endif %} rounded-lg transition" title="{% if u.is_active %}Deactivate Account{% else %}Activate Account{% endif %}">
+                                    <i aria-hidden="true" class="fa-solid {% if u.is_active %}fa-user-check{% else %}fa-user-slash{% endif %} text-xs"></i>
+                                </a>
+
+                                <a href="{% url 'accounts:user_delete' u.pk %}" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete User">
+                                    <i aria-hidden="true" class="fa-solid fa-trash-can text-xs"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-slate-400">
+                            <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                                <i aria-hidden="true" class="fa-solid fa-user-slash text-lg"></i>
+                            </div>
+                            <div class="text-sm font-bold text-slate-700">No users found</div>
+                            <p class="text-xs text-slate-400 mt-1">Try adjusting your search criteria or role filters.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <div>
+                Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </div>
+            <div class="flex items-center gap-2">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium">
+                    Previous
+                </a>
+                {% endif %}
+
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium">
+                    Next
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

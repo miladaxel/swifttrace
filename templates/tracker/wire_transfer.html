@@ -3,22 +3,20 @@
 {% block title %}Find a Wire Transfer Record | Wire Records{% endblock %}
 
 {% block content %}
-<section class="py-12 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto">
-    <div class="text-center mb-8">
+<section class="wire-page py-12 px-4 sm:px-6 lg:px-8 max-w-2xl mx-auto">
+    <div class="wire-heading text-center mb-8">
         <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Find Your Wire Transfer Record</h1>
-        <p class="text-sm text-slate-500 mt-3">Search records entered and published by an administrator. Use a UETR, or a payment reference together with the date and amount.</p>
-        <a href="#search-help" class="inline-block mt-3 text-sm font-semibold text-orange-700 underline underline-offset-2">Where do I find these details?</a>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-[0_4px_25px_-4px_rgba(0,0,0,0.06)] border border-slate-100 p-8 sm:p-10 relative">
+    <div class="reference-card wire-card bg-white rounded-2xl shadow-[0_4px_25px_-4px_rgba(0,0,0,0.06)] border border-slate-100 p-8 sm:p-10 relative">
         <div class="absolute top-0 left-8 right-8 h-1 bg-orange-500 rounded-t-2xl"></div>
-        <div class="flex justify-center -mt-2 mb-8">
+        <div class="card-badge flex justify-center -mt-2 mb-8">
             <span class="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold bg-orange-500 text-white shadow-sm gap-1.5">
-                <i class="fa-solid fa-magnifying-glass text-[11px]"></i> Document Search
+                <i aria-hidden="true" class="fa-solid fa-magnifying-glass text-[11px]"></i> Document Search
             </span>
         </div>
 
-        <form method="POST" action="{% url 'tracker:wire_transfer' %}" class="space-y-4">
+        <form method="POST" action="{% url 'tracker:wire_transfer' %}">
             {% csrf_token %}
             {% if rate_limit_message %}
             <div role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ rate_limit_message }}</div>
@@ -27,37 +25,39 @@
             <div role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}<a href="#search-help" class="block mt-2 font-semibold underline">Check the search guide</a></div>
             {% endif %}
 
-            <div>
+            <div class="wire-field">
                 <label for="id_uetr" class="block text-xs font-semibold text-slate-700 mb-1">UETR</label>
                 <input type="text" name="uetr" id="id_uetr" value="{{ form.uetr.value|default_if_none:'' }}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off" aria-describedby="uetr-help" {% if form.uetr.errors %}aria-invalid="true"{% endif %} class="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
-                <p id="uetr-help" class="mt-1 text-xs text-slate-500">A 36-character identifier, often shown as UETR or field 121 on an MT103.</p>
+                <button type="button" class="field-help-button" data-help="uetr-help" aria-label="UETR help" aria-expanded="false" aria-controls="uetr-help"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></button>
+                <p id="uetr-help" class="field-hint mt-1 text-xs text-slate-500">A 36-character identifier, often shown as UETR or field 121 on an MT103.</p>
                 {% if form.uetr.errors %}<p class="mt-1 text-xs text-red-600">{{ form.uetr.errors|striptags }}</p>{% endif %}
             </div>
-            <div>
+            <div class="wire-field">
                 <label for="id_reference" class="block text-xs font-semibold text-slate-700 mb-1">Payment reference</label>
                 <input type="text" name="reference" id="id_reference" value="{{ form.reference.value|default_if_none:'' }}" placeholder="Reference number, if you have no UETR" autocomplete="off" aria-describedby="reference-help" {% if form.reference.errors %}aria-invalid="true"{% endif %} class="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
-                <p id="reference-help" class="mt-1 text-xs text-slate-500">May be labelled transaction reference or field 20. Date and amount are required when searching without a UETR.</p>
+                <button type="button" class="field-help-button" data-help="reference-help" aria-label="Payment reference help" aria-expanded="false" aria-controls="reference-help"><i class="fa-solid fa-circle-question" aria-hidden="true"></i></button>
+                <p id="reference-help" class="field-hint mt-1 text-xs text-slate-500">May be labelled transaction reference or field 20. Date and amount are required when searching without a UETR.</p>
                 {% if form.reference.errors %}<p class="mt-1 text-xs text-red-600">{{ form.reference.errors|striptags }}</p>{% endif %}
             </div>
-            <div>
+            <div class="wire-field">
                 <label for="id_date" class="block text-xs font-semibold text-slate-700 mb-1">Payment date <span class="font-normal text-slate-400">(required with reference only)</span></label>
                 <input type="date" name="date_of_payment" id="id_date" value="{{ form.date_of_payment.value|default_if_none:'' }}" {% if form.date_of_payment.errors %}aria-invalid="true"{% endif %} class="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
                 {% if form.date_of_payment.errors %}<p class="mt-1 text-xs text-red-600">{{ form.date_of_payment.errors|striptags }}</p>{% endif %}
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+            <div class="wire-amount-currency grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="wire-field">
                     <label for="id_amount" class="block text-xs font-semibold text-slate-700 mb-1">Amount <span class="font-normal text-slate-400">(required with reference only)</span></label>
                     <input type="number" step="0.01" min="0.01" name="amount" id="id_amount" value="{{ form.amount.value|default_if_none:'' }}" placeholder="Amount" {% if form.amount.errors %}aria-invalid="true"{% endif %} class="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
                     {% if form.amount.errors %}<p class="mt-1 text-xs text-red-600">{{ form.amount.errors|striptags }}</p>{% endif %}
                 </div>
-                <div>
+                <div class="wire-field">
                     <label for="id_currency" class="block text-xs font-semibold text-slate-700 mb-1">Currency <span class="font-normal text-slate-400">(optional)</span></label>
                     <input type="text" maxlength="3" name="currency" id="id_currency" value="{{ form.currency.value|default_if_none:'' }}" placeholder="USD" {% if form.currency.errors %}aria-invalid="true"{% endif %} class="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-orange-500">
                     {% if form.currency.errors %}<p class="mt-1 text-xs text-red-600">{{ form.currency.errors|striptags }}</p>{% endif %}
                 </div>
             </div>
 
-            <div class="flex items-start pt-1">
+            <div class="wire-consent flex items-start pt-1">
                 <input type="checkbox" name="consent" id="id_consent" required {% if form.consent.value %}checked{% endif %} class="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-400">
                 <label for="id_consent" class="ml-2.5 text-xs text-slate-500 leading-normal">I confirm I am the sender, beneficiary, or authorized representative for this payment.</label>
             </div>
@@ -66,10 +66,14 @@
             <button type="submit" class="w-full py-3.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm transition text-sm">Search records</button>
         </form>
     </div>
-    <p class="mt-5 text-center text-xs text-slate-500">Results show only information recorded and published by our team. No live bank status is retrieved.</p>
+    <div class="wire-intro">
+        <p class="text-sm text-slate-500 mt-3">Search records entered and published by an administrator. Use a UETR, or a payment reference together with the date and amount.</p>
+        <a href="#search-help" class="inline-block mt-3 text-sm font-semibold text-orange-700 underline underline-offset-2">Where do I find these details?</a>
+    </div>
+    <p class="wire-result-note mt-5 text-center text-xs text-slate-500">Results show only information recorded and published by our team. No live bank status is retrieved.</p>
 </section>
 
-<section id="search-help" aria-labelledby="search-help-heading" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+<section id="search-help" aria-labelledby="search-help-heading" class="wire-help max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
     <div class="border-t border-slate-200 pt-12">
         <h2 id="search-help-heading" class="text-2xl font-extrabold text-slate-900">How to find your payment record</h2>
         <p class="text-sm text-slate-600 mt-2">The information you enter must match a record that an administrator has published here.</p>
@@ -94,7 +98,7 @@
     </div>
 </section>
 
-<section aria-labelledby="status-guide-heading" class="bg-slate-50 border-y border-slate-200 py-12">
+<section aria-labelledby="status-guide-heading" class="status-guide bg-slate-50 border-y border-slate-200 py-12">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 id="status-guide-heading" class="text-2xl font-extrabold text-slate-900">Understanding a recorded status</h2>
         <p class="text-sm text-slate-600 mt-2">These labels describe what the administrator recorded, as of the date shown on the result. “Held” is a portal category.</p>
@@ -108,7 +112,7 @@
     </div>
 </section>
 
-<section aria-labelledby="faq-heading" class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+<section aria-labelledby="faq-heading" class="wire-faq max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
     <h2 id="faq-heading" class="text-2xl font-extrabold text-slate-900">Frequently asked questions</h2>
     <div class="mt-6 space-y-3 text-sm">
         <details class="bg-white border border-slate-200 rounded-xl p-5"><summary class="font-bold text-slate-900 cursor-pointer">Can I search without a UETR?</summary><p class="mt-3 text-slate-600">Yes. Enter the payment reference, date and amount. Add currency if the search returns more than one matching record.</p></details>

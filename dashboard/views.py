@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.db.models import Count, Sum, Q
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import permission_required
-from tracker.models import WireTransfer
+from tracker.models import WireTransfer, TrackerSettings
 
 
 @staff_member_required
@@ -55,4 +55,5 @@ def dashboard_view(request):
         'held_count': held_count,
         'selected_status': status_filter,
         'search_query': query,
+        'tracker_settings': TrackerSettings.get_settings(),
     })

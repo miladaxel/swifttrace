@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Add New User | Ohmyfin{% endblock %}
+
+{% block content %}
+<div class="account-page py-10 px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto">
+
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-xs text-slate-500 mb-6">
+        <a href="{% url 'pages:home' %}" class="hover:text-slate-800 transition">Home</a>
+        <i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i>
+        <a href="{% url 'accounts:user_list' %}" class="hover:text-slate-800 transition">User Management</a>
+        <i aria-hidden="true" class="fa-solid fa-chevron-right text-[9px] text-slate-300"></i>
+        <span class="text-slate-800 font-semibold">Add User</span>
+    </div>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Add New User</h1>
+        <p class="text-sm text-slate-500 mt-1">Create an account and assign roles and permissions directly.</p>
+    </div>
+
+    <!-- Form Card -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 sm:p-8">
+
+        {% if form.non_field_errors %}
+        <div class="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 space-y-1">
+            {% for error in form.non_field_errors %}
+            <div class="flex items-center gap-2">
+                <i aria-hidden="true" class="fa-solid fa-circle-exclamation text-red-500"></i>
+                <span>{{ error }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{% url 'accounts:user_create' %}" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- Core Credentials Section -->
+            <div>
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                    <i aria-hidden="true" class="fa-solid fa-user-lock text-orange-500"></i>
+                    <span>Login Credentials</span>
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="id_username" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Username <span class="text-orange-500">*</span>
+                        </label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                        <p class="text-xs text-red-600 mt-1 font-medium">{{ form.username.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="id_email" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Email Address
+                        </label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                        <p class="text-xs text-red-600 mt-1 font-medium">{{ form.email.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label for="id_password" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Password <span class="text-orange-500">*</span>
+                        </label>
+                        {{ form.password }}
+                        {% if form.password.errors %}
+                        <p class="text-xs text-red-600 mt-1 font-medium">{{ form.password.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="id_confirm_password" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Confirm Password <span class="text-orange-500">*</span>
+                        </label>
+                        {{ form.confirm_password }}
+                        {% if form.confirm_password.errors %}
+                        <p class="text-xs text-red-600 mt-1 font-medium">{{ form.confirm_password.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Info Section -->
+            <div>
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                    <i aria-hidden="true" class="fa-solid fa-address-card text-orange-500"></i>
+                    <span>Profile Details</span>
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="id_first_name" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            First Name
+                        </label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                        <p class="text-xs text-red-600 mt-1 font-medium">{{ form.first_name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="id_last_name" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Last Name
+                        </label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                        <p class="text-xs text-red-600 mt-1 font-medium">{{ form.last_name.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roles & Permissions Section -->
+            <div>
+                <label for="id_membership_tier" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Membership tier</label>
+                {{ form.membership_tier }}
+                {% if form.membership_tier.errors %}<p class="text-xs text-red-600 mt-1">{{ form.membership_tier.errors.0 }}</p>{% endif %}
+            </div>
+
+            <!-- Roles & Permissions Section -->
+            <div>
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-900 mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                    <i aria-hidden="true" class="fa-solid fa-shield-halved text-orange-500"></i>
+                    <span>Account Status & Roles</span>
+                </h2>
+
+                <div class="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <div class="pt-0.5">{{ form.is_active }}</div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-800">Active Account</div>
+                            <div class="text-[11px] text-slate-500">Designates whether this user can log into the platform.</div>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <div class="pt-0.5">{{ form.is_staff }}</div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-800">Staff Status</div>
+                            <div class="text-[11px] text-slate-500">Grants access to payments dashboard, internal tools, and user management.</div>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <div class="pt-0.5">{{ form.is_superuser }}</div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-800">Superuser Status</div>
+                            <div class="text-[11px] text-slate-500">Grants all permissions implicitly without explicit assignments.</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Submit & Cancel -->
+            <div class="pt-4 flex items-center gap-3">
+                <button
+                    type="submit"
+                    class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition flex items-center gap-2"
+                >
+                    <i aria-hidden="true" class="fa-solid fa-user-plus text-xs"></i>
+                    <span>Create User Account</span>
+                </button>
+                <a href="{% url 'accounts:user_list' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+                    Cancel
+                </a>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+{% endblock %}
