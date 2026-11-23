@@ -1,3 +1,8 @@
+from functools import wraps
+from io import BytesIO
+import mimetypes
+
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import (
@@ -8,7 +13,14 @@ from django.contrib.auth import (
 )
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core.exceptions import PermissionDenied
+from django.http import FileResponse, Http404, HttpResponse
+from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.contrib.auth.views import redirect_to_login
+from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from django.db.models import Q
 from django.core.paginator import Paginator
 
@@ -20,10 +32,26 @@ from .forms import (
     AdminUserCreateForm,
     AdminUserEditForm,
     AdminResetPasswordForm,
+    PaymentProofForm,
+    ReviewDecisionForm,
 )
-from .quotas import quota_status
+from .models import MembershipTier, PlanPurchase
+from .purchase_review import review_purchase
+from .quotas import expire_memberships, limits_for, membership_for, quota_status, tier_for
 
 User = get_user_model()
+
+
+def superuser_required(view_func):
+    """Reserve account administration for active staff superusers."""
+    @staff_member_required
+    @wraps(view_func)
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        return view_func(request, *args, **kwargs)
+
+    return wrapped
 
 
 # ---------------------------------------------------------
@@ -59,7 +87,7 @@ def login_view(request):
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 return redirect(next_url)
 
-            if user.is_staff:
+            if user.is_staff and user.has_perm('tracker.view_wiretransfer'):
                 return redirect('dashboard:index')
             return redirect('pages:home')
     else:
@@ -95,7 +123,7 @@ def register_view(request):
         if form.is_valid():
             user = form.save()
             auth_login(request, user)
-            messages.success(request, f"Welcome to Ohmyfin, {user.first_name or user.username}! Your account is now active.")
+            messages.success(request, f"Welcome to Swifttrace, {user.first_name or user.username}! Your account is now active.")
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
                 return redirect(next_url)
             return redirect('pages:home')
@@ -127,7 +155,183 @@ def profile_view(request):
         'form': form,
         'membership_tier': tier,
         'monthly_usage': usage,
+        'membership_limits': limits_for(request),
+        'membership_expires_at': membership_for(request.user).expires_at,
+        'recent_purchases': PlanPurchase.objects.filter(user=request.user).select_related('tier')[:3],
     })
+
+
+@require_POST
+def start_plan_purchase_view(request, level):
+    if not request.user.is_authenticated:
+        return redirect_to_login(reverse('pages:pricing'), login_url=settings.LOGIN_URL)
+    if level not in (MembershipTier.SILVER, MembershipTier.GOLD):
+        raise Http404('This plan is not available for purchase.')
+    tier = get_object_or_404(MembershipTier, pk=level)
+    submitted = PlanPurchase.objects.filter(
+        user=request.user, tier=tier, status=PlanPurchase.SUBMITTED,
+    ).first()
+    if submitted:
+        messages.info(request, 'Your payment proof for this plan is already awaiting review.')
+        return redirect('accounts:plan_purchase', purchase_id=submitted.pk)
+    if not (tier.monthly_price_usdt and tier.payment_url and tier.payment_network):
+        messages.warning(request, 'Payment instructions for this plan are not available yet.')
+        return redirect('pages:pricing')
+    tier_for(request)
+    purchase, _ = PlanPurchase.objects.get_or_create(
+        user=request.user, tier=tier, status=PlanPurchase.AWAITING_PAYMENT,
+        defaults={
+            'price_usdt': tier.monthly_price_usdt,
+            'monthly_search_limit': tier.monthly_search_limit,
+            'monthly_download_limit': tier.monthly_download_limit,
+            'payment_url': tier.payment_url,
+            'payment_network': tier.payment_network,
+        },
+    )
+    return redirect('accounts:plan_purchase', purchase_id=purchase.pk)
+
+
+@login_required
+@never_cache
+def plan_purchase_view(request, purchase_id):
+    purchase = get_object_or_404(PlanPurchase.objects.select_related('tier'), pk=purchase_id, user=request.user)
+    if request.method == 'POST' and purchase.status == PlanPurchase.AWAITING_PAYMENT:
+        form = PaymentProofForm(request.POST, request.FILES, instance=purchase)
+        if form.is_valid():
+            proof = form.save(commit=False)
+            proof.status = PlanPurchase.SUBMITTED
+            proof.submitted_at = timezone.now()
+            proof.save(update_fields=['txid', 'receipt_image', 'status', 'submitted_at'])
+            messages.success(request, 'Payment proof submitted. An administrator can now review it.')
+            return redirect('accounts:plan_purchase', purchase_id=purchase.pk)
+    elif request.method == 'POST':
+        messages.info(request, 'This payment proof has already been submitted.')
+        return redirect('accounts:plan_purchase', purchase_id=purchase.pk)
+    else:
+        form = PaymentProofForm(instance=purchase) if purchase.status == PlanPurchase.AWAITING_PAYMENT else None
+    return render(request, 'accounts/plan_purchase.html', {'purchase': purchase, 'form': form})
+
+
+@login_required
+def plan_purchase_history_view(request):
+    purchases = PlanPurchase.objects.filter(user=request.user).select_related('tier')
+    return render(request, 'accounts/plan_purchase_history.html', {'purchases': purchases})
+
+
+@login_required
+@never_cache
+def purchase_qr_view(request, purchase_id):
+    purchase = get_object_or_404(
+        PlanPurchase, pk=purchase_id, user=request.user, status=PlanPurchase.AWAITING_PAYMENT,
+    )
+    import qrcode
+
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=8, border=4)
+    qr.add_data(purchase.payment_url)
+    qr.make(fit=True)
+    output = BytesIO()
+    qr.make_image(fill_color='#172033', back_color='white').save(output, format='PNG')
+    response = HttpResponse(output.getvalue(), content_type='image/png')
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@login_required
+@never_cache
+def purchase_receipt_view(request, purchase_id):
+    purchase = get_object_or_404(PlanPurchase, pk=purchase_id)
+    if purchase.user_id != request.user.pk and not request.user.is_superuser:
+        raise Http404('Receipt not found.')
+    if not purchase.receipt_image:
+        raise Http404('Receipt not found.')
+    try:
+        purchase.receipt_image.open('rb')
+    except (OSError, ValueError):
+        raise Http404('Receipt image is unavailable.')
+    content_type = mimetypes.guess_type(purchase.receipt_image.name)[0] or 'application/octet-stream'
+    response = FileResponse(purchase.receipt_image, content_type=content_type)
+    response['Cache-Control'] = 'private, no-store'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@superuser_required
+@never_cache
+def purchase_review_list_view(request):
+    status_filter = request.GET.get('status', PlanPurchase.SUBMITTED)
+    valid_statuses = {value for value, _ in PlanPurchase.STATUS_CHOICES} | {'all'}
+    if status_filter not in valid_statuses:
+        status_filter = PlanPurchase.SUBMITTED
+    tier_filter = request.GET.get('tier', 'all')
+    if tier_filter not in (MembershipTier.SILVER, MembershipTier.GOLD, 'all'):
+        tier_filter = 'all'
+    query = request.GET.get('q', '').strip()
+
+    purchases = PlanPurchase.objects.select_related('user', 'tier', 'reviewed_by')
+    if status_filter != 'all':
+        purchases = purchases.filter(status=status_filter)
+    if tier_filter != 'all':
+        purchases = purchases.filter(tier_id=tier_filter)
+    if query:
+        purchases = purchases.filter(
+            Q(user__username__icontains=query) | Q(user__email__icontains=query) | Q(txid__icontains=query)
+        )
+
+    page_obj = Paginator(purchases, 15).get_page(request.GET.get('page'))
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+    return render(request, 'accounts/purchase_review_list.html', {
+        'page_obj': page_obj,
+        'purchases': page_obj.object_list,
+        'status_filter': status_filter,
+        'tier_filter': tier_filter,
+        'query': query,
+        'filter_query': query_params.urlencode(),
+        'pending_count': PlanPurchase.objects.filter(status=PlanPurchase.SUBMITTED).count(),
+        'approved_count': PlanPurchase.objects.filter(status=PlanPurchase.APPROVED).count(),
+        'rejected_count': PlanPurchase.objects.filter(status=PlanPurchase.REJECTED).count(),
+        'total_count': PlanPurchase.objects.count(),
+        'status_choices': [('submitted', 'Needs review'), ('awaiting_payment', 'Awaiting payment'), ('approved', 'Approved'), ('rejected', 'Rejected'), ('all', 'All')],
+    })
+
+
+def render_purchase_review(request, purchase, form=None, status=200):
+    return render(request, 'accounts/purchase_review_detail.html', {
+        'purchase': purchase,
+        'membership': membership_for(purchase.user),
+        'form': form or ReviewDecisionForm(),
+    }, status=status)
+
+
+@superuser_required
+@never_cache
+def purchase_review_detail_view(request, purchase_id):
+    purchase = get_object_or_404(
+        PlanPurchase.objects.select_related('user', 'tier', 'reviewed_by'), pk=purchase_id,
+    )
+    return render_purchase_review(request, purchase)
+
+
+@superuser_required
+@require_POST
+def purchase_review_action_view(request, purchase_id):
+    purchase = get_object_or_404(
+        PlanPurchase.objects.select_related('user', 'tier', 'reviewed_by'), pk=purchase_id,
+    )
+    form = ReviewDecisionForm(request.POST)
+    if not form.is_valid():
+        return render_purchase_review(request, purchase, form, status=400)
+    purchase, changed = review_purchase(
+        purchase.pk, request.user, form.cleaned_data['decision'], form.cleaned_data['note'],
+    )
+    if not changed:
+        messages.warning(request, 'This request has already been reviewed or is not ready for review.')
+    elif purchase.status == PlanPurchase.APPROVED:
+        messages.success(request, f'{purchase.user.username} now has {purchase.tier} access until {purchase.access_expires_at:%Y-%m-%d}.')
+    else:
+        messages.success(request, f'{purchase.user.username}\'s payment request was rejected.')
+    return redirect('accounts:purchase_review_detail', purchase_id=purchase.pk)
 
 
 @login_required
@@ -153,10 +357,10 @@ def change_password_view(request):
 
 
 # ---------------------------------------------------------
-# User Management Views (Staff & Admin Only)
+# User Management Views (Superusers Only)
 # ---------------------------------------------------------
 
-@staff_member_required
+@superuser_required
 def user_list_view(request):
     """
     Comprehensive User Management Dashboard.
@@ -165,7 +369,9 @@ def user_list_view(request):
     query = request.GET.get('q', '').strip()
     role_filter = request.GET.get('role', 'all')
     status_filter = request.GET.get('status', 'all')
+    tier_filter = request.GET.get('tier', 'all')
 
+    expire_memberships()
     users_qs = User.objects.select_related('membership__tier').order_by('-date_joined')
 
     # Apply search filter
@@ -191,6 +397,11 @@ def user_list_view(request):
     elif status_filter == 'inactive':
         users_qs = users_qs.filter(is_active=False)
 
+    if tier_filter in (MembershipTier.FREE, MembershipTier.SILVER, MembershipTier.GOLD):
+        users_qs = users_qs.filter(membership__tier_id=tier_filter)
+    else:
+        tier_filter = 'all'
+
     # Key Statistics
     total_users = User.objects.count()
     active_users = User.objects.filter(is_active=True).count()
@@ -208,17 +419,20 @@ def user_list_view(request):
         'query': query,
         'role_filter': role_filter,
         'status_filter': status_filter,
+        'tier_filter': tier_filter,
         'total_users': total_users,
         'active_users': active_users,
         'staff_users': staff_users,
         'superuser_count': superuser_count,
+        'pending_count': PlanPurchase.objects.filter(status=PlanPurchase.SUBMITTED).count(),
+        'pending_purchases': PlanPurchase.objects.filter(status=PlanPurchase.SUBMITTED).select_related('user', 'tier').order_by('submitted_at')[:3],
     })
 
 
-@staff_member_required
+@superuser_required
 def user_create_view(request):
     """
-    Staff/Admin view to create a new user account.
+    Superuser view to create a new user account.
     """
     if request.method == 'POST':
         form = AdminUserCreateForm(request.POST)
@@ -234,23 +448,26 @@ def user_create_view(request):
     })
 
 
-@staff_member_required
+@superuser_required
 def user_edit_view(request, user_id):
     """
-    Staff/Admin view to edit user account details and permissions.
+    Superuser view to edit user account details and permissions.
     """
     target_user = get_object_or_404(User, pk=user_id)
 
     if request.method == 'POST':
         form = AdminUserEditForm(request.POST, instance=target_user)
         if form.is_valid():
-            # Safety check: if target is self and currently superuser, verify not unsetting superuser
+            # Prevent an administrator from locking themselves out.
             if target_user == request.user and request.user.is_superuser:
                 if not form.cleaned_data.get('is_superuser'):
                     messages.error(request, "You cannot remove superuser privileges from your own account.")
                     return redirect('accounts:user_edit', user_id=target_user.pk)
                 if not form.cleaned_data.get('is_active'):
                     messages.error(request, "You cannot deactivate your own account.")
+                    return redirect('accounts:user_edit', user_id=target_user.pk)
+                if not form.cleaned_data.get('is_staff'):
+                    messages.error(request, "You cannot remove staff access from your own account.")
                     return redirect('accounts:user_edit', user_id=target_user.pk)
 
             updated_user = form.save()
@@ -262,13 +479,15 @@ def user_edit_view(request, user_id):
     return render(request, 'accounts/user_edit.html', {
         'form': form,
         'target_user': target_user,
+        'target_membership': membership_for(target_user),
+        'user_purchases': PlanPurchase.objects.filter(user=target_user).select_related('tier')[:5],
     })
 
 
-@staff_member_required
+@superuser_required
 def user_password_view(request, user_id):
     """
-    Staff/Admin view to reset password for a user.
+    Superuser view to reset password for a user.
     """
     target_user = get_object_or_404(User, pk=user_id)
 
@@ -293,7 +512,8 @@ def user_password_view(request, user_id):
     })
 
 
-@staff_member_required
+@superuser_required
+@require_POST
 def user_toggle_status_view(request, user_id):
     """
     Quickly toggle a user's active/inactive status.
@@ -312,10 +532,10 @@ def user_toggle_status_view(request, user_id):
     return redirect('accounts:user_list')
 
 
-@staff_member_required
+@superuser_required
 def user_delete_view(request, user_id):
     """
-    Staff/Admin view to delete a user account with confirmation.
+    Superuser view to delete a user account with confirmation.
     """
     target_user = get_object_or_404(User, pk=user_id)
 

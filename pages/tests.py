@@ -30,8 +30,8 @@ class HomePageTests(TestCase):
 
         # Verify branding & key sections
         self.assertIn("Find a cross-border payment record", content)
-        self.assertIn("ohmyfin", content)
-        self.assertIn("Ohm", content)
+        self.assertIn("Swifttrace", content)
+        self.assertIn("Swift", content)
         self.assertIn("110,000+", content)
         self.assertIn("Before You Send", content)
         self.assertIn("After You Send", content)

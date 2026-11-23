@@ -2,9 +2,60 @@ from django import forms
 from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import MembershipTier, UserMembership
+from .models import MembershipTier, PlanPurchase, UserMembership
+from .quotas import membership_for
 
 User = get_user_model()
+
+
+class PaymentProofForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['txid'].required = True
+        self.fields['receipt_image'].required = True
+
+    class Meta:
+        model = PlanPurchase
+        fields = ('txid', 'receipt_image')
+        widgets = {
+            'txid': forms.TextInput(attrs={
+                'placeholder': 'Paste the transaction ID from your wallet',
+                'autocomplete': 'off',
+                'class': 'w-full rounded-xl border border-slate-300 px-4 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-orange-500',
+            }),
+            'receipt_image': forms.ClearableFileInput(attrs={
+                'accept': 'image/jpeg,image/png,image/webp',
+                'class': 'block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-orange-100 file:px-4 file:py-2 file:font-semibold file:text-orange-700',
+            }),
+        }
+
+    def clean_txid(self):
+        txid = (self.cleaned_data.get('txid') or '').strip().lower()
+        if not txid or any(character.isspace() for character in txid):
+            raise ValidationError('Enter a transaction ID without spaces.')
+        if PlanPurchase.objects.filter(txid=txid).exclude(pk=self.instance.pk).exists():
+            raise ValidationError('This transaction ID has already been submitted.')
+        return txid
+
+
+class ReviewDecisionForm(forms.Form):
+    decision = forms.ChoiceField(choices=[('approved', 'Approve'), ('rejected', 'Reject')])
+    note = forms.CharField(
+        required=False, max_length=2000,
+        widget=forms.Textarea(attrs={
+            'rows': 4,
+            'placeholder': 'Required when rejecting. Explain what the customer should correct.',
+            'class': 'w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500',
+        }),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        note = (cleaned_data.get('note') or '').strip()
+        if cleaned_data.get('decision') == 'rejected' and not note:
+            self.add_error('note', 'Enter a reason before rejecting this request.')
+        cleaned_data['note'] = note
+        return cleaned_data
 
 
 class UserLoginForm(forms.Form):
@@ -238,17 +289,23 @@ class MembershipFormMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
-            membership = UserMembership.objects.filter(user=self.instance).first()
-            self.fields['membership_tier'].initial = membership.tier_id if membership else MembershipTier.FREE
+            self.fields['membership_tier'].initial = membership_for(self.instance).tier_id
         else:
             self.fields['membership_tier'].initial = MembershipTier.FREE
 
     def save(self, commit=True):
         user = super().save(commit=commit)
         if commit:
-            UserMembership.objects.update_or_create(
-                user=user, defaults={'tier_id': self.cleaned_data.get('membership_tier') or self.fields['membership_tier'].initial}
-            )
+            membership = membership_for(user)
+            selected_tier = self.cleaned_data.get('membership_tier') or self.fields['membership_tier'].initial
+            if membership.tier_id != selected_tier:
+                membership.tier_id = selected_tier
+                membership.expires_at = None
+                if selected_tier == MembershipTier.FREE:
+                    membership.clear_limits()
+                else:
+                    membership.capture_limits(MembershipTier.objects.get(pk=selected_tier))
+                membership.save(update_fields=['tier', 'expires_at', 'monthly_search_limit', 'monthly_download_limit'])
         return user
 
 
@@ -324,8 +381,14 @@ class AdminUserCreateForm(MembershipFormMixin, forms.ModelForm):
         user.set_password(self.cleaned_data['password'])
         if commit:
             user.save()
+            selected_tier = self.cleaned_data.get('membership_tier') or MembershipTier.FREE
+            tier = MembershipTier.objects.get(pk=selected_tier)
             UserMembership.objects.update_or_create(
-                user=user, defaults={'tier_id': self.cleaned_data.get('membership_tier') or MembershipTier.FREE}
+                user=user, defaults={
+                    'tier': tier,
+                    'monthly_search_limit': tier.monthly_search_limit if selected_tier != MembershipTier.FREE else None,
+                    'monthly_download_limit': tier.monthly_download_limit if selected_tier != MembershipTier.FREE else None,
+                },
             )
         return user
 

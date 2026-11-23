@@ -122,6 +122,29 @@ class WireTransferAdmin(admin.ModelAdmin):
             record.save(update_fields=['is_published', 'updated_at'])
 
 
+@admin.register(TransferSourceDocument)
+class TransferSourceDocumentAdmin(admin.ModelAdmin):
+    list_display = ('original_filename', 'transfer', 'description', 'download_link', 'uploaded_at', 'uploaded_by')
+    list_filter = ('uploaded_at',)
+    search_fields = ('original_filename', 'description', 'transfer__uetr', 'transfer__reference_number')
+    readonly_fields = ('uploaded_at', 'download_link')
+
+    @admin.display(description='Download File')
+    def download_link(self, obj):
+        if not obj.pk or not obj.file:
+            return '—'
+        url = reverse('tracker:download_source_document', args=[obj.pk])
+        return format_html('<a href="{}" target="_blank">Download source file</a>', url)
+
+
+@admin.register(TransferStatusHistory)
+class TransferStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = ('transfer', 'status', 'previous_status', 'status_observed_at', 'changed_at', 'changed_by')
+    list_filter = ('status', 'previous_status', 'changed_at')
+    search_fields = ('transfer__uetr', 'transfer__reference_number', 'status_reason', 'note')
+    readonly_fields = ('changed_at',)
+
+
 @admin.register(TrackingStep)
 class TrackingStepAdmin(admin.ModelAdmin):
     list_display = ('transfer', 'step_order', 'bank_name', 'bank_bic', 'role', 'status_label', 'fee_deducted')

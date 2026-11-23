@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Review {{ purchase.tier }} payment | Swifttrace{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <nav class="mb-7 text-sm text-slate-500" aria-label="Breadcrumb"><a href="{% url 'accounts:user_list' %}" class="hover:text-orange-600">User management</a><span class="mx-2" aria-hidden="true">/</span><a href="{% url 'accounts:purchase_review_list' %}" class="hover:text-orange-600">Payment reviews</a><span class="mx-2" aria-hidden="true">/</span><span class="font-semibold text-slate-800">Request details</span></nav>
+
+    <div class="mb-8 flex flex-wrap items-start justify-between gap-5">
+        <div>
+            <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-orange-600">Evidence / {{ purchase.pk }}</p>
+            <h1 class="font-display text-4xl font-bold text-slate-900">Review {{ purchase.tier }} payment</h1>
+            <p class="mt-3 text-sm text-slate-600">Inspect the evidence and compare it with your payment records before making a decision.</p>
+            {% if purchase.is_demo_payment %}<p class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">Test request: the payment link does not collect USDT. Approving this request still activates the user's plan.</p>{% endif %}
+        </div>
+        <span class="rounded-full px-4 py-2 text-xs font-bold {% if purchase.status == 'submitted' %}bg-orange-100 text-orange-800{% elif purchase.status == 'approved' %}bg-emerald-100 text-emerald-800{% elif purchase.status == 'rejected' %}bg-red-100 text-red-800{% else %}bg-slate-100 text-slate-700{% endif %}">{{ purchase.get_status_display }}</span>
+    </div>
+
+    <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div class="space-y-6">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="transaction-heading">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div><p class="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Payment evidence</p><h2 id="transaction-heading" class="mt-2 font-display text-2xl font-bold text-slate-900">Transaction details</h2></div>
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{{ purchase.payment_network }}</span>
+                </div>
+                <dl class="mt-7 grid gap-5 border-t border-slate-100 pt-6 sm:grid-cols-2">
+                    <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Amount</dt><dd class="mt-1 font-display text-2xl font-bold text-slate-900">{{ purchase.price_usdt|floatformat:2 }} USDT</dd></div>
+                    <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Plan</dt><dd class="mt-1 text-lg font-bold text-slate-900">{{ purchase.tier }}</dd></div>
+                    <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Search allowance</dt><dd class="mt-1 text-lg font-bold text-slate-900">{{ purchase.monthly_search_limit|default_if_none:purchase.tier.monthly_search_limit }} / month</dd></div>
+                    <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Download allowance</dt><dd class="mt-1 text-lg font-bold text-slate-900">{{ purchase.monthly_download_limit|default_if_none:purchase.tier.monthly_download_limit }} / month</dd></div>
+                    <div class="sm:col-span-2"><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Transaction ID</dt><dd class="mt-1 break-all rounded-lg bg-slate-50 p-3 font-mono text-sm text-slate-900">{{ purchase.txid|default:'Not submitted yet' }}</dd></div>
+                    <div class="sm:col-span-2"><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Payment link shown to customer</dt><dd class="mt-1 break-all text-sm text-slate-700">{{ purchase.payment_url }}</dd></div>
+                    <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Started</dt><dd class="mt-1 text-sm text-slate-800">{{ purchase.created_at|date:'M d, Y H:i' }} UTC</dd></div>
+                    <div><dt class="text-xs font-bold uppercase tracking-wider text-slate-500">Proof submitted</dt><dd class="mt-1 text-sm text-slate-800">{% if purchase.submitted_at %}{{ purchase.submitted_at|date:'M d, Y H:i' }} UTC{% else %}Not yet{% endif %}</dd></div>
+                </dl>
+            </section>
+
+            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="receipt-heading">
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-5 sm:px-8"><h2 id="receipt-heading" class="font-display text-xl font-bold text-slate-900">Receipt image</h2>{% if purchase.receipt_image %}<a href="{% url 'accounts:purchase_receipt' purchase.pk %}" target="_blank" rel="noopener" class="text-xs font-bold text-orange-600 underline underline-offset-4">Open full image</a>{% endif %}</div>
+                {% if purchase.receipt_image %}
+                <div class="flex min-h-[260px] items-center justify-center bg-slate-50 p-4"><img src="{% url 'accounts:purchase_receipt' purchase.pk %}" alt="Receipt uploaded by {{ purchase.user.username }}" class="max-h-[520px] max-w-full rounded-lg object-contain shadow-sm"></div>
+                {% else %}<p class="p-8 text-sm text-slate-500">The customer has not uploaded a receipt yet.</p>{% endif %}
+            </section>
+        </div>
+
+        <div class="space-y-6">
+            <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="customer-heading">
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-orange-600">Customer</p>
+                <h2 id="customer-heading" class="mt-2 font-display text-xl font-bold text-slate-900">{{ purchase.user.get_full_name|default:purchase.user.username }}</h2>
+                <p class="mt-1 text-sm text-slate-500">@{{ purchase.user.username }} · {{ purchase.user.email|default:'No email' }}</p>
+                <div class="mt-5 border-t border-slate-100 pt-5 text-sm text-slate-700">
+                    <p>Current tier: <strong>{{ membership.tier }}</strong></p>
+                    {% if membership.tier_id != 'free' %}<p class="mt-1">Current allowance: <strong>{{ membership.monthly_search_limit }} searches · {{ membership.monthly_download_limit }} downloads / month</strong></p>{% endif %}
+                    {% if membership.expires_at %}<p class="mt-1">Access until: <strong>{{ membership.expires_at|date:'M d, Y H:i' }} UTC</strong></p>{% endif %}
+                </div>
+                <a href="{% url 'accounts:user_edit' purchase.user.pk %}" class="mt-5 inline-block text-xs font-bold text-orange-600 underline underline-offset-4">Open user account</a>
+            </section>
+
+            {% if purchase.status == 'submitted' %}
+            <section class="rounded-2xl border border-orange-200 bg-orange-50/50 p-6 shadow-sm" aria-labelledby="decision-heading">
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-orange-700">Decision required</p>
+                <h2 id="decision-heading" class="mt-2 font-display text-2xl font-bold text-slate-900">Approve or reject</h2>
+                <p class="mt-3 text-sm leading-6 text-slate-600">Approval activates this plan for one month. If the same plan is already active, it extends the current end date by one month. Rejection leaves the user's plan unchanged.</p>
+                <form method="post" action="{% url 'accounts:purchase_review_action' purchase.pk %}" class="mt-6 space-y-4">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}<div role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
+                    <div><label for="{{ form.note.id_for_label }}" class="mb-2 block text-sm font-bold text-slate-900">Review note</label>{{ form.note }}<p class="mt-2 text-xs text-slate-600">Required for rejection; shown to the customer.</p>{% for error in form.note.errors %}<p role="alert" class="mt-2 text-xs font-bold text-red-700">{{ error }}</p>{% endfor %}</div>
+                    {% for error in form.decision.errors %}<p role="alert" class="text-xs font-bold text-red-700">{{ error }}</p>{% endfor %}
+                    <div class="flex flex-wrap gap-3">
+                        <button type="submit" name="decision" value="approved" class="rounded-lg bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700">Approve &amp; activate</button>
+                        <button type="submit" name="decision" value="rejected" class="rounded-lg border border-red-300 bg-white px-5 py-3 text-sm font-bold text-red-700 hover:bg-red-50">Reject request</button>
+                    </div>
+                </form>
+            </section>
+            {% elif purchase.status == 'awaiting_payment' %}
+            <section class="rounded-2xl border border-slate-200 bg-slate-50 p-6"><h2 class="font-display text-lg font-bold text-slate-900">Waiting for the customer</h2><p class="mt-2 text-sm text-slate-600">A decision is available after they submit both a TXID and receipt image.</p></section>
+            {% else %}
+            <section class="rounded-2xl border {% if purchase.status == 'approved' %}border-emerald-200 bg-emerald-50{% else %}border-red-200 bg-red-50{% endif %} p-6" aria-labelledby="review-result-heading">
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Review recorded</p>
+                <h2 id="review-result-heading" class="mt-2 font-display text-xl font-bold text-slate-900">{{ purchase.get_status_display }}</h2>
+                <p class="mt-2 text-sm text-slate-700">By {{ purchase.reviewed_by.username|default:'Former administrator' }} · {{ purchase.reviewed_at|date:'M d, Y H:i' }} UTC</p>
+                {% if purchase.access_expires_at %}<p class="mt-2 text-sm font-semibold text-slate-800">Access through {{ purchase.access_expires_at|date:'M d, Y H:i' }} UTC</p>{% endif %}
+                {% if purchase.review_note %}<p class="mt-4 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-800">{{ purchase.review_note }}</p>{% endif %}
+            </section>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

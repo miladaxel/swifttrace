@@ -11,18 +11,21 @@
             <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Payment Records Dashboard</h1>
             <p class="text-sm text-slate-500 mt-1">Review records and statuses entered by administrators.</p>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex flex-wrap items-center gap-3">
             {% if perms.tracker.add_wiretransfer %}
             <a href="{% url 'admin:tracker_wiretransfer_add' %}" class="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
                 <i aria-hidden="true" class="fa-solid fa-plus text-xs"></i>
                 <span>Add Payment Record</span>
             </a>
             {% endif %}
-            <a href="{% url 'admin:tracker_trackersettings_changelist' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition flex items-center gap-2">
+            {% if request.user.is_superuser %}<a href="{% url 'admin:tracker_trackersettings_changelist' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition flex items-center gap-2">
                 <i aria-hidden="true" class="fa-solid fa-sliders text-xs"></i>
                 <span>Tracker Settings</span>
             </a>
-            <a href="{% url 'admin:accounts_membershiptier_changelist' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition">Membership Limits</a>
+            <a href="{% url 'admin:accounts_membershiptier_changelist' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition">Membership Limits</a>{% endif %}
+            {% if request.user.is_superuser %}
+            <a href="{% url 'accounts:purchase_review_list' %}" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition">Payment Reviews</a>
+            {% endif %}
         </div>
     </div>
 
@@ -63,10 +66,10 @@
                     <span>{% if tracker_settings.require_login %}Make Public (No Login){% else %}Require Login to Use Tracker{% endif %}</span>
                 </button>
             </form>
-            <a href="{% url 'admin:tracker_trackersettings_changelist' %}" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5" title="Manage in Django Admin">
+            {% if request.user.is_superuser %}<a href="{% url 'admin:tracker_trackersettings_changelist' %}" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5" title="Manage in Django Admin">
                 <i aria-hidden="true" class="fa-solid fa-gear text-xs"></i>
                 <span>Admin Panel</span>
-            </a>
+            </a>{% endif %}
         </div>
     </div>
 
@@ -113,31 +116,40 @@
     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <!-- Status Filter Pills -->
         <div class="flex flex-wrap items-center gap-2">
-            <a href="{% url 'dashboard:index' %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if not selected_status %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="{% url 'dashboard:index' %}{% if search_query %}?q={{ search_query|urlencode }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if not selected_status %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}" {% if not selected_status %}aria-current="page"{% endif %}>
                 All Wires
             </a>
-            <a href="{% url 'dashboard:index' %}?status=ACSP" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'ACSP' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="{% url 'dashboard:index' %}?status=ACSP{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'ACSP' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}" {% if selected_status == 'ACSP' %}aria-current="page"{% endif %}>
                 In Transit (ACSP)
             </a>
-            <a href="{% url 'dashboard:index' %}?status=ACCC" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'ACCC' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="{% url 'dashboard:index' %}?status=ACCC{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'ACCC' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}" {% if selected_status == 'ACCC' %}aria-current="page"{% endif %}>
                 Settled (ACCC)
             </a>
-            <a href="{% url 'dashboard:index' %}?status=HOLD" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'HOLD' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="{% url 'dashboard:index' %}?status=HOLD{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'HOLD' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}" {% if selected_status == 'HOLD' %}aria-current="page"{% endif %}>
                 Held (HOLD)
             </a>
+            <a href="{% url 'dashboard:index' %}?status=PDNG{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'PDNG' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}" {% if selected_status == 'PDNG' %}aria-current="page"{% endif %}>Pending (PDNG)</a>
+            <a href="{% url 'dashboard:index' %}?status=RJCT{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if selected_status == 'RJCT' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}" {% if selected_status == 'RJCT' %}aria-current="page"{% endif %}>Rejected (RJCT)</a>
         </div>
 
         <!-- Search Input -->
-        <form method="GET" action="{% url 'dashboard:index' %}" class="relative w-full md:w-80">
+        <form method="GET" action="{% url 'dashboard:index' %}" class="flex w-full flex-wrap items-center gap-2 md:w-auto" role="search">
+            {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
+            <label for="record-search" class="sr-only">Search payment records</label>
             <input
+                id="record-search"
                 type="text"
                 name="q"
                 value="{{ search_query }}"
                 placeholder="Search by UETR, Ref, or Party..."
-                class="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800"
+                class="min-w-0 flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 md:w-64"
             >
-            <i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+            <button type="submit" class="rounded-lg bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600">Search</button>
         </form>
+    </div>
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600" role="status">
+        <span>{{ page_obj.paginator.count }} matching record{{ page_obj.paginator.count|pluralize }}{% if page_obj.paginator.count %} · showing {{ page_obj.start_index }}–{{ page_obj.end_index }}{% endif %}</span>
+        {% if search_query or selected_status %}<a href="{% url 'dashboard:index' %}" class="font-bold text-orange-700 underline underline-offset-2">Clear filters</a>{% endif %}
     </div>
 
     <!-- Payments Table -->
@@ -208,7 +220,7 @@
                     <tr>
                         <td colspan="6" class="py-12 text-center text-slate-400 text-sm">
                             <i aria-hidden="true" class="fa-solid fa-box-open text-3xl mb-3 block text-slate-300"></i>
-                            No payment records found.{% if perms.tracker.add_wiretransfer %} <a href="{% url 'admin:tracker_wiretransfer_add' %}" class="text-orange-500 underline font-semibold">Add a record</a> to get started.{% endif %}
+                            {% if search_query or selected_status %}No records match these filters. <a href="{% url 'dashboard:index' %}" class="text-orange-700 underline font-semibold">Clear filters</a> to see all records.{% else %}No payment records yet.{% if perms.tracker.add_wiretransfer %} <a href="{% url 'admin:tracker_wiretransfer_add' %}" class="text-orange-700 underline font-semibold">Add a record</a> to get started.{% endif %}{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -216,5 +228,14 @@
             </table>
         </div>
     </div>
+    {% if page_obj.has_other_pages %}
+    <nav class="mt-4 flex items-center justify-between gap-3 text-sm text-slate-600" aria-label="Payment records pages">
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <div class="flex gap-2">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if selected_status %}&status={{ selected_status|urlencode }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">Previous</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if selected_status %}&status={{ selected_status|urlencode }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}" class="rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">Next</a>{% endif %}
+        </div>
+    </nav>
+    {% endif %}
 </div>
 {% endblock %}

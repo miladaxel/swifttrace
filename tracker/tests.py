@@ -20,7 +20,7 @@ from tools.services import IBANValidatorService, SanctionsScreenerService
 from accounts.models import MembershipTier, MonthlyUsage
 
 
-class OhmyfinTrackerTests(TestCase):
+class SwifttraceTrackerTests(TestCase):
     def setUp(self):
         self.client = Client()
 
@@ -170,12 +170,32 @@ PRIME HORIZON GENERAL TRADING
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Payment Records Dashboard")
 
+    def test_dashboard_pages_filtered_records_and_preserves_search(self):
+        staff = get_user_model().objects.create_user(username='records_staff', password='test-password', is_staff=True)
+        staff.user_permissions.add(Permission.objects.get(codename='view_wiretransfer'))
+        self.client.force_login(staff)
+        WireTransfer.objects.bulk_create([
+            WireTransfer(reference_number=f'BATCH-{index:02}', date_of_payment='2026-03-31',
+                         amount=100, currency='USD', status='ACSP')
+            for index in range(21)
+        ])
+
+        url = reverse('dashboard:index') + '?status=ACSP&q=BATCH'
+        first_page = self.client.get(url)
+        self.assertEqual(first_page.context['page_obj'].paginator.count, 21)
+        self.assertEqual(len(first_page.context['transfers']), 20)
+        self.assertContains(first_page, '?page=2&status=ACSP&q=BATCH')
+
+        second_page = self.client.get(url + '&page=2')
+        self.assertEqual(len(second_page.context['transfers']), 1)
+        self.assertContains(second_page, 'BATCH-00')
+
     def test_pages_and_tools_views(self):
         pages_to_test = [
             (reverse('pages:home'), "Find a cross-border payment record"),
             (reverse('pages:for_business'), "A managed payment record portal"),
             (reverse('pages:about'), "About this project"),
-            (reverse('pages:pricing'), "Service availability"),
+            (reverse('pages:pricing'), "More room to follow every transfer."),
             (reverse('pages:scam_alert'), "Check payment claims with your bank"),
             (reverse('tools:correspondent_banks'), "Sample Currency Corridors"),
             (reverse('tools:arrival_estimator'), "Sample Transit Timing"),
@@ -764,6 +784,27 @@ class PublicSearchPrivacyTests(TestCase):
 
 
 class MembershipViewTests(TestCase):
+    def test_superuser_is_exempt_from_membership_limits(self):
+        admin_user = get_user_model().objects.create_superuser(
+            username='quota-admin-view', email='quota-admin@example.com', password='test-password'
+        )
+        self.client.force_login(admin_user)
+        free = MembershipTier.objects.get(level='free')
+        free.monthly_search_limit = 1
+        free.monthly_download_limit = 0
+        free.save()
+        transfer = WireTransfer.objects.create(
+            uetr='87e98b4c-6d01-43b6-a693-431902c36026',
+            date_of_payment=timezone.localdate(), amount='100.00', currency='USD',
+        )
+        search_url = reverse('tracker:wire_transfer')
+        query = {'uetr': transfer.uetr, 'consent': 'on'}
+        self.assertEqual(self.client.post(search_url, query).status_code, 200)
+        self.assertEqual(self.client.post(search_url, query).status_code, 200)
+        statement_url = reverse('tracker:download_transfer_statement', args=[transfer.pk])
+        self.assertEqual(self.client.get(statement_url).status_code, 200)
+        self.assertFalse(MonthlyUsage.objects.filter(identity=f'user:{admin_user.pk}').exists())
+
     def test_search_and_statement_enforce_current_tier_limits(self):
         user = get_user_model().objects.create_user(username='member', password='test-password')
         self.client.force_login(user)

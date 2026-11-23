@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.db.models import Count, Sum, Q
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import permission_required
+from django.core.paginator import Paginator
 from tracker.models import WireTransfer, TrackerSettings
 
 
@@ -9,10 +10,12 @@ from tracker.models import WireTransfer, TrackerSettings
 @permission_required('tracker.view_wiretransfer', raise_exception=True)
 def dashboard_view(request):
     """
-    Payments Dashboard matching Ohmyfin's 'Payments Dashboard' button.
+    Payments Dashboard matching Swifttrace's 'Payments Dashboard' button.
     Displays overview of all tracked wires, statuses, metrics and actions.
     """
     status_filter = request.GET.get('status', '')
+    if status_filter not in dict(WireTransfer.STATUS_CHOICES):
+        status_filter = ''
     query = request.GET.get('q', '').strip()
 
     transfers = WireTransfer.objects.all()
@@ -43,12 +46,13 @@ def dashboard_view(request):
     total_count = WireTransfer.objects.count()
     completed_count = WireTransfer.objects.filter(status='ACCC').count()
     in_transit_count = WireTransfer.objects.filter(status='ACSP').count()
-    held_count = WireTransfer.objects.filter(status__in=['HOLD', 'RJCT']).count()
+    held_count = WireTransfer.objects.filter(status='HOLD').count()
     
-    recent_transfers = transfers[:20]
+    page_obj = Paginator(transfers.order_by('-date_of_payment', '-pk'), 20).get_page(request.GET.get('page'))
 
     return render(request, 'dashboard/index.html', {
-        'transfers': recent_transfers,
+        'transfers': page_obj.object_list,
+        'page_obj': page_obj,
         'total_count': total_count,
         'completed_count': completed_count,
         'in_transit_count': in_transit_count,

@@ -154,7 +154,7 @@ def download_transfer_statement(request, transfer_id):
 
     lines = [
         "=" * 78,
-        "                         OHMYFIN WIRE TRANSFER RECORD",
+        "                         SWIFTTRACE WIRE TRANSFER RECORD",
         "=" * 78,
         f"Generated At:       {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}",
         f"Status:             {transfer.get_status_display()} ({transfer.status})",
@@ -207,7 +207,7 @@ def download_transfer_statement(request, transfer_id):
     lines.extend([
         "",
         "=" * 78,
-        "Notice: This statement contains record data verified and entered in Ohmyfin.",
+        "Notice: This statement contains record data verified and entered in Swifttrace.",
         "=" * 78,
     ])
 

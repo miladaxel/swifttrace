@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 
-{% block title %}Ohmyfin | AI Treasury Assistant & Cross-Border Payment Intelligence{% endblock %}
+{% block title %}Swifttrace | AI Treasury Assistant & Cross-Border Payment Intelligence{% endblock %}
 
 {% block content %}
 
-<!-- Hero Section with Dual Console (Quick Search & Meet Ohm) -->
+<!-- Hero Section with Dual Console (Quick Search & Meet Swift) -->
 <section class="home-hero relative overflow-hidden pt-12 pb-20 lg:pt-16 lg:pb-28 bg-gradient-to-b from-orange-50/60 via-white to-slate-50/40 border-b border-slate-200/70">
     <!-- Subtle Background Glows -->
     <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[450px] bg-gradient-to-tr from-orange-200/30 to-amber-100/40 rounded-full blur-3xl pointer-events-none -z-10"></div>
@@ -20,7 +20,7 @@
             </div>
 
             <h1 class="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
-                Find a cross-border payment record & <span class="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 bg-clip-text text-transparent">track SWIFT transfers</span> with Ohm
+                Find a cross-border payment record & <span class="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 bg-clip-text text-transparent">track SWIFT transfers</span> with Swift
             </h1>
 
             <p class="mt-6 text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto font-normal">
@@ -38,9 +38,9 @@
                         <i aria-hidden="true" class="fa-solid fa-magnifying-glass text-orange-500"></i>
                         <span>Instant Wire Tracker</span>
                     </button>
-                    <button type="button" id="tab-btn-ohm" role="tab" aria-selected="false" aria-controls="tab-pane-ohm" onclick="switchHeroTab('ohm')" class="flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition">
+                    <button type="button" id="tab-btn-swift" role="tab" aria-selected="false" aria-controls="tab-pane-swift" onclick="switchHeroTab('swift')" class="flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition">
                         <i aria-hidden="true" class="fa-solid fa-robot text-amber-500"></i>
-                        <span>Meet Ohm (AI Copilot Demo)</span>
+                        <span>Meet Swift (AI Copilot Demo)</span>
                         <span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">Live</span>
                     </button>
                 </div>
@@ -134,10 +134,10 @@
 
                 </div>
 
-                <!-- Tab 2: Meet Ohm (AI Treasury Assistant Copilot Demo) -->
-                <div id="tab-pane-ohm" role="tabpanel" aria-labelledby="tab-btn-ohm" class="hidden p-6 sm:p-8 bg-slate-900 text-white">
+                <!-- Tab 2: Meet Swift (AI Treasury Assistant Copilot Demo) -->
+                <div id="tab-pane-swift" role="tabpanel" aria-labelledby="tab-btn-swift" class="hidden p-6 sm:p-8 bg-slate-900 text-white">
 
-                    <!-- Ohm Header -->
+                    <!-- Swift Header -->
                     <div class="flex items-center justify-between pb-4 border-b border-slate-800">
                         <div class="flex items-center gap-3">
                             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 font-black shadow-sm">
@@ -145,7 +145,7 @@
                             </div>
                             <div>
                                 <div class="font-bold text-sm text-white flex items-center gap-2">
-                                    <span>Ohm Treasury Copilot</span>
+                                    <span>Swift Treasury Copilot</span>
                                     <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                                 </div>
                                 <div class="text-[11px] text-slate-400">Connected to BIC/SWIFT directories & 300+ watchlists</div>
@@ -156,33 +156,33 @@
 
                     <!-- Interactive Scenario Chips -->
                     <div class="mt-4">
-                        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Click an example scenario to ask Ohm:</div>
+                        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Click an example scenario to ask Swift:</div>
                         <div class="flex flex-wrap gap-1.5" id="scenario-chips">
-                            <button type="button" onclick="askOhmScenario('uae_delay')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                            <button type="button" onclick="askSwiftScenario('uae_delay')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
                                 💬 Why is USD payment to UAE delayed?
                             </button>
-                            <button type="button" onclick="askOhmScenario('mt103_uetr')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                            <button type="button" onclick="askSwiftScenario('mt103_uetr')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
                                 💬 How to find Field 121 (UETR) on MT103?
                             </button>
-                            <button type="button" onclick="askOhmScenario('sha_deductions')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                            <button type="button" onclick="askSwiftScenario('sha_deductions')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
                                 💬 Explain SHA vs OUR fee deductions
                             </button>
-                            <button type="button" onclick="askOhmScenario('sanctions')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
+                            <button type="button" onclick="askSwiftScenario('sanctions')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs text-left transition border border-slate-700">
                                 💬 Screen a entity against OFAC watchlists
                             </button>
                         </div>
                     </div>
 
                     <!-- Simulated Chat Messages Area -->
-                    <div id="ohm-chat-window" class="mt-5 space-y-4 max-h-72 overflow-y-auto pr-1 text-xs">
+                    <div id="swift-chat-window" class="mt-5 space-y-4 max-h-72 overflow-y-auto pr-1 text-xs">
 
-                        <!-- Initial Message from Ohm -->
+                        <!-- Initial Message from Swift -->
                         <div class="flex items-start gap-3">
                             <div class="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 mt-0.5">
                                 <i aria-hidden="true" class="fa-solid fa-robot text-xs"></i>
                             </div>
                             <div class="bg-slate-800/80 rounded-2xl rounded-tl-sm p-3.5 border border-slate-700/60 leading-relaxed text-slate-200">
-                                Hello! I am <strong>Ohm</strong>, your AI Treasury Assistant. I can help diagnose delayed cross-border payments, inspect correspondent bank paths, validate MT103 SWIFT messages, and run compliance screening. Select a scenario above or ask a question below.
+                                Hello! I am <strong>Swift</strong>, your AI Treasury Assistant. I can help diagnose delayed cross-border payments, inspect correspondent bank paths, validate MT103 SWIFT messages, and run compliance screening. Select a scenario above or ask a question below.
                             </div>
                         </div>
 
@@ -190,8 +190,8 @@
 
                     <!-- Question Input -->
                     <div class="mt-4 pt-3 border-t border-slate-800">
-                        <form onsubmit="handleCustomOhmAsk(event)" class="flex gap-2">
-                            <input type="text" aria-label="Ask Ohm" id="ohm-user-input" placeholder="Ask Ohm about wire routes, SWIFT status codes, or sanctions..." class="flex-grow px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-orange-500">
+                        <form onsubmit="handleCustomSwiftAsk(event)" class="flex gap-2">
+                            <input type="text" aria-label="Ask Swift" id="swift-user-input" placeholder="Ask Swift about wire routes, SWIFT status codes, or sanctions..." class="flex-grow px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-orange-500">
                             <button type="submit" aria-label="Send question" class="px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition">
                                 <i aria-hidden="true" class="fa-solid fa-paper-plane"></i>
                             </button>
@@ -211,7 +211,7 @@
     </div>
 </section>
 
-<!-- Scale & Banking Intelligence Metrics Bar (Ohmyfin Signature Metrics) -->
+<!-- Scale & Banking Intelligence Metrics Bar (Swifttrace Signature Metrics) -->
 <section class="py-12 bg-white border-b border-slate-200/80">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-slate-100">
@@ -256,7 +256,7 @@
                 Two workflows engineered for cross-border certainty
             </h2>
             <p class="text-base text-slate-600 mt-3">
-                Ohmyfin bridges the gap before funds leave and tracks what happens across correspondent banks until settlement.
+                Swifttrace bridges the gap before funds leave and tracks what happens across correspondent banks until settlement.
             </p>
         </div>
 
@@ -438,7 +438,7 @@
         <div class="text-center max-w-3xl mx-auto mb-16">
             <span class="text-xs font-bold uppercase tracking-wider text-orange-600">Troubleshooting Intelligence</span>
             <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-3">
-                Why cross-border wires stall & how Ohm helps
+                Why cross-border wires stall & how Swift helps
             </h2>
             <p class="text-sm sm:text-base text-slate-600 mt-3">
                 90% of cross-border payment delays happen at intermediary correspondent banks due to simple formatting or screening issues.
@@ -463,7 +463,7 @@
                 </div>
                 <h3 class="font-bold text-slate-900 text-lg">Unexpected Fee Deductions (SHA/BEN)</h3>
                 <p class="text-xs text-slate-600 mt-2.5 leading-relaxed">
-                    When wires route through multiple correspondent banks, each intermediary may deduct fees from the principal amount under SHA or BEN charge codes. Ohmyfin helps estimate landed deductions before dispatch.
+                    When wires route through multiple correspondent banks, each intermediary may deduct fees from the principal amount under SHA or BEN charge codes. Swifttrace helps estimate landed deductions before dispatch.
                 </p>
             </div>
 
@@ -482,7 +482,7 @@
     </div>
 </section>
 
-<!-- Official Ohmyfin Scam Warning Banner -->
+<!-- Official Swifttrace Scam Warning Banner -->
 <section class="py-14 bg-white border-y border-slate-200/80">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="rounded-3xl border border-amber-200 bg-amber-50/80 p-8 sm:p-10 relative overflow-hidden">
@@ -525,7 +525,7 @@
                     Built for AI agents & fintech platforms
                 </h2>
                 <p class="mt-4 text-sm sm:text-base text-slate-400 leading-relaxed">
-                    Integrate cross-border payment intelligence directly into your treasury workflows. Ohmyfin exposes its routing directories, IBAN checks, and sanctions screening via REST APIs and Model Context Protocol (MCP) servers.
+                    Integrate cross-border payment intelligence directly into your treasury workflows. Swifttrace exposes its routing directories, IBAN checks, and sanctions screening via REST APIs and Model Context Protocol (MCP) servers.
                 </p>
 
                 <div class="mt-8 space-y-3 text-xs text-slate-300">
@@ -564,7 +564,7 @@
                     </div>
                     <span class="text-[10px] text-orange-400 font-semibold">POST /api/parse-mt103/</span>
                 </div>
-                <pre class="overflow-x-auto leading-relaxed text-slate-300"><code>curl -X POST https://ohmyfin.ai/api/parse-mt103/ \
+                <pre class="overflow-x-auto leading-relaxed text-slate-300"><code>curl -X POST https://swifttrace.example/api/parse-mt103/ \
   -H "Content-Type: application/json" \
   -d '{
     "raw_text": "{1:F01SVBLUS6SAXXX0000000000}{2:I103EBILAEADXXXXN}{4:\n:20:SWIFT-USD-88910\n:32A:261117USD125000,00\n:121:c2b9a762-b91b-4df2-8e77-508b981f4f5a\n-}"
@@ -624,30 +624,30 @@
         }
     }
 
-    // 2. Switch between Tracker Tab and Ohm Copilot Tab
+    // 2. Switch between Tracker Tab and Swift Copilot Tab
     function switchHeroTab(tab) {
         const paneTracker = document.getElementById('tab-pane-tracker');
-        const paneOhm = document.getElementById('tab-pane-ohm');
+        const paneSwift = document.getElementById('tab-pane-swift');
         const btnTracker = document.getElementById('tab-btn-tracker');
-        const btnOhm = document.getElementById('tab-btn-ohm');
+        const btnSwift = document.getElementById('tab-btn-swift');
 
         btnTracker.setAttribute("aria-selected", String(tab === "tracker"));
-        btnOhm.setAttribute("aria-selected", String(tab === "ohm"));
+        btnSwift.setAttribute("aria-selected", String(tab === "swift"));
         if (tab === 'tracker') {
             paneTracker.classList.remove('hidden');
-            paneOhm.classList.add('hidden');
+            paneSwift.classList.add('hidden');
             btnTracker.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 bg-white text-orange-600 shadow-sm border border-slate-200/60 transition";
-            btnOhm.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition";
+            btnSwift.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition";
         } else {
             paneTracker.classList.add('hidden');
-            paneOhm.classList.remove('hidden');
-            btnOhm.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 bg-slate-900 text-white shadow-sm border border-slate-700 transition";
+            paneSwift.classList.remove('hidden');
+            btnSwift.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 bg-slate-900 text-white shadow-sm border border-slate-700 transition";
             btnTracker.className = "flex-1 py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 hover:bg-white/60 transition";
         }
     }
 
-    // 4. Ohm Interactive Chat Logic
-    const ohmKnowledge = {
+    // 4. Swift Interactive Chat Logic
+    const swiftKnowledge = {
         'uae_delay': {
             question: "Why is my USD payment to UAE bank delayed?",
             answer: `<strong>Diagnosis for UAE Wire Delay:</strong><br>
@@ -674,16 +674,16 @@
         'sanctions': {
             question: "Screen a entity against OFAC watchlists",
             answer: `<strong>Sanctions & PEP Screening:</strong><br>
-            Ohmyfin cross-references counterparties against 300+ international watchlists including US OFAC (SDN), UK OFSI, UN Security Council, and EU restrictive measures.<br><br>
+            Swifttrace cross-references counterparties against 300+ international watchlists including US OFAC (SDN), UK OFSI, UN Security Council, and EU restrictive measures.<br><br>
             • Try our <a href="{% url 'tools:sanctions_screener' %}" class="text-orange-400 underline font-bold">Sanctions Screener Demo</a> to test name matching and fuzzy transliteration.`
         }
     };
 
-    function askOhmScenario(key) {
-        const item = ohmKnowledge[key];
+    function askSwiftScenario(key) {
+        const item = swiftKnowledge[key];
         if (!item) return;
 
-        const chatWin = document.getElementById('ohm-chat-window');
+        const chatWin = document.getElementById('swift-chat-window');
 
         // Add User Message
         const userMsg = document.createElement('div');
@@ -695,11 +695,11 @@
         `;
         chatWin.appendChild(userMsg);
 
-        // Add Ohm Response with simulated response
+        // Add Swift Response with simulated response
         setTimeout(() => {
-            const ohmMsg = document.createElement('div');
-            ohmMsg.className = "flex items-start gap-3";
-            ohmMsg.innerHTML = `
+            const swiftMsg = document.createElement('div');
+            swiftMsg.className = "flex items-start gap-3";
+            swiftMsg.innerHTML = `
                 <div class="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 mt-0.5">
                     <i aria-hidden="true" class="fa-solid fa-robot text-xs"></i>
                 </div>
@@ -707,20 +707,20 @@
                     ${item.answer}
                 </div>
             `;
-            chatWin.appendChild(ohmMsg);
+            chatWin.appendChild(swiftMsg);
             chatWin.scrollTop = chatWin.scrollHeight;
         }, 200);
 
         chatWin.scrollTop = chatWin.scrollHeight;
     }
 
-    function handleCustomOhmAsk(event) {
+    function handleCustomSwiftAsk(event) {
         event.preventDefault();
-        const input = document.getElementById('ohm-user-input');
+        const input = document.getElementById('swift-user-input');
         const text = input.value.trim();
         if (!text) return;
 
-        const chatWin = document.getElementById('ohm-chat-window');
+        const chatWin = document.getElementById('swift-chat-window');
 
         // Add User Message
         const userMsg = document.createElement('div');
@@ -735,9 +735,9 @@
 
         // Generate response
         setTimeout(() => {
-            const ohmMsg = document.createElement('div');
-            ohmMsg.className = "flex items-start gap-3";
-            ohmMsg.innerHTML = `
+            const swiftMsg = document.createElement('div');
+            swiftMsg.className = "flex items-start gap-3";
+            swiftMsg.innerHTML = `
                 <div class="w-7 h-7 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0 mt-0.5">
                     <i aria-hidden="true" class="fa-solid fa-robot text-xs"></i>
                 </div>
@@ -746,7 +746,7 @@
                     In cross-border wire operations, transactions depend on proper SWIFT field formatting, correspondent routing paths, and sanctions checks. You can trace published payment records using our <a href="{% url 'tracker:wire_transfer' %}" class="text-orange-400 underline font-bold">Payment Search</a> or validate MT103 text with the <a href="{% url 'tools:document_validator' %}" class="text-orange-400 underline font-bold">MT103 Extractor</a>.
                 </div>
             `;
-            chatWin.appendChild(ohmMsg);
+            chatWin.appendChild(swiftMsg);
             chatWin.scrollTop = chatWin.scrollHeight;
         }, 300);
 

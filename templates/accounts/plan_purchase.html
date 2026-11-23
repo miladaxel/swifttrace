@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Pay for {{ purchase.tier }} | Swifttrace{% endblock %}
+
+{% block content %}
+<div class="purchase-page mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <nav class="mb-7 text-sm text-slate-500" aria-label="Breadcrumb">
+        <a href="{% url 'pages:pricing' %}" class="hover:text-orange-600">Membership plans</a>
+        <span class="mx-2" aria-hidden="true">/</span>
+        <span class="font-semibold text-slate-800">{{ purchase.tier }} payment</span>
+    </nav>
+
+    <div class="mb-9 max-w-3xl">
+        <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-orange-600">Payment request / {{ purchase.id }}</p>
+        <h1 class="font-display text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Pay for {{ purchase.tier }}.</h1>
+        <p class="mt-4 text-base leading-7 text-slate-600">{% if purchase.is_demo_payment %}This is a test payment request. Open the sample link or scan its QR code, then submit a sample transaction ID and receipt image to test the review flow. Do not send real USDT.{% else %}Use the payment link or scan the QR code. Then return here with your transaction ID and a screenshot of the transfer.{% endif %}</p>
+    </div>
+
+    <ol class="mb-8 grid gap-3 text-sm sm:grid-cols-3" aria-label="Payment steps">
+        <li class="rounded-xl border border-slate-200 bg-white px-4 py-3"><span class="mr-3 font-mono text-orange-600">01</span><strong class="text-slate-800">Plan selected</strong></li>
+        <li class="rounded-xl border border-slate-200 bg-white px-4 py-3"><span class="mr-3 font-mono text-orange-600">02</span><strong class="text-slate-800">{% if purchase.is_demo_payment %}Open test link{% else %}Pay in USDT{% endif %}</strong></li>
+        <li class="rounded-xl border border-slate-200 bg-white px-4 py-3"><span class="mr-3 font-mono text-orange-600">03</span><strong class="text-slate-800">Send proof</strong></li>
+    </ol>
+
+    <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <section class="overflow-hidden rounded-2xl bg-slate-900 p-6 text-white shadow-xl sm:p-8" aria-labelledby="payment-heading">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-orange-300">Amount to pay</p>
+                    <h2 id="payment-heading" class="mt-2 font-display text-4xl font-bold tracking-tight sm:text-5xl">{{ purchase.price_usdt|floatformat:2 }} <span class="text-xl text-orange-300">USDT</span></h2>
+                    <p class="mt-2 text-sm text-slate-300">{{ purchase.tier }} plan · monthly allowance</p>
+                    <p class="mt-2 text-xs text-slate-300">{{ purchase.monthly_search_limit|default_if_none:purchase.tier.monthly_search_limit }} searches and {{ purchase.monthly_download_limit|default_if_none:purchase.tier.monthly_download_limit }} downloads per month, fixed for this purchase.</p>
+                </div>
+                <span class="rounded-full border border-slate-600 px-3 py-1 text-xs font-bold text-slate-200">{{ purchase.payment_network }}</span>
+            </div>
+
+            {% if purchase.status != 'awaiting_payment' %}
+            <div class="mt-8 border-t border-slate-700 pt-7 text-sm leading-6 text-slate-200">The payment link and QR code are closed for this request after proof submission.</div>
+            {% else %}
+            <div class="mt-8 flex flex-col gap-6 border-t border-slate-700 pt-7 sm:flex-row sm:items-center">
+                <div class="w-fit shrink-0 rounded-xl bg-white p-3 shadow-lg">
+                    <img src="{% url 'accounts:purchase_qr' purchase.pk %}" alt="QR code for the payment link" width="176" height="176" class="block h-44 w-44">
+                </div>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-white">Scan to open the payment link</p>
+                    <p class="mt-2 text-xs leading-5 text-slate-300">{% if purchase.is_demo_payment %}This QR code contains a sample link. It does not collect a payment. Do not send real USDT.{% else %}Check the network and exact amount before you send USDT. The QR code contains the link below.{% endif %}</p>
+                    <a id="payment-link" href="{{ purchase.payment_url }}" target="_blank" rel="noopener noreferrer" class="mt-4 block break-all rounded-lg border border-slate-600 bg-slate-800 p-3 font-mono text-xs leading-5 text-orange-200 underline underline-offset-2">{{ purchase.payment_url }}</a>
+                    <button type="button" id="copy-payment-link" class="mt-3 rounded-lg border border-slate-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-700">Copy payment link</button>
+                    <span id="copy-feedback" class="ml-2 text-xs text-slate-300" role="status" aria-live="polite"></span>
+                </div>
+            </div>
+            {% endif %}
+            <p class="mt-7 border-t border-slate-700 pt-5 text-xs leading-6 text-slate-300">This payment request keeps the amount and link shown when you selected the plan. Keep your wallet receipt until an administrator reviews your submission.</p>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="proof-heading">
+            {% if purchase.status == 'submitted' %}
+            <div class="mb-6 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800"><span class="h-2 w-2 rounded-full bg-amber-500"></span>Submitted for review</div>
+            <h2 id="proof-heading" class="font-display text-2xl font-bold text-slate-900">Your proof is with the administrator.</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-600">Your plan has not been activated yet. You can review the details you sent below.</p>
+            <dl class="mt-7 space-y-4 border-t border-slate-200 pt-6 text-sm">
+                <div><dt class="font-semibold text-slate-500">Transaction ID</dt><dd class="mt-1 break-all font-mono text-slate-900">{{ purchase.txid }}</dd></div>
+                <div><dt class="font-semibold text-slate-500">Receipt image</dt><dd class="mt-1"><a href="{% url 'accounts:purchase_receipt' purchase.pk %}" target="_blank" rel="noopener" class="font-bold text-orange-600 underline underline-offset-4">View submitted image</a></dd></div>
+                <div><dt class="font-semibold text-slate-500">Submitted</dt><dd class="mt-1 text-slate-800">{{ purchase.submitted_at|date:'M d, Y H:i' }} UTC</dd></div>
+            </dl>
+            {% elif purchase.status == 'approved' %}
+            <div class="mb-6 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Approved</div>
+            <h2 id="proof-heading" class="font-display text-2xl font-bold text-slate-900">Your {{ purchase.tier }} plan is active.</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-600">Access from this payment runs through {{ purchase.access_expires_at|date:'M d, Y H:i' }} UTC.</p>
+            {% if purchase.review_note %}<p class="mt-5 rounded-lg bg-slate-50 p-4 text-sm text-slate-700">{{ purchase.review_note }}</p>{% endif %}
+            <a href="{% url 'accounts:profile' %}" class="mt-6 inline-block rounded-lg bg-orange-500 px-5 py-3 text-sm font-bold text-white hover:bg-orange-600">View my account</a>
+            {% elif purchase.status == 'rejected' %}
+            <div class="mb-6 inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-800"><span class="h-2 w-2 rounded-full bg-red-500"></span>Rejected</div>
+            <h2 id="proof-heading" class="font-display text-2xl font-bold text-slate-900">This payment request was rejected.</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-600">Your plan has not changed. Review the reason below before starting a new request.</p>
+            <p class="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">{{ purchase.review_note }}</p>
+            <a href="{% url 'pages:pricing' %}" class="mt-6 inline-block rounded-lg bg-orange-500 px-5 py-3 text-sm font-bold text-white hover:bg-orange-600">View plans</a>
+            {% else %}
+            <p class="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-orange-600">After payment</p>
+            <h2 id="proof-heading" class="font-display text-2xl font-bold text-slate-900">Send your payment proof.</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-600">{% if purchase.is_demo_payment %}Enter a sample TXID and upload a test image to send this request to the administrator.{% else %}Copy the TXID from your wallet and upload a clear image showing the completed transfer.{% endif %}</p>
+            <form method="post" enctype="multipart/form-data" class="mt-7 space-y-6">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
+                <div>
+                    <label for="{{ form.txid.id_for_label }}" class="mb-2 block text-sm font-bold text-slate-900">Transaction ID (TXID)</label>
+                    {{ form.txid }}
+                    <p class="mt-2 text-xs text-slate-500">Paste the full ID exactly as your wallet shows it.</p>
+                    {% for error in form.txid.errors %}<p role="alert" class="mt-2 text-xs font-semibold text-red-700">{{ error }}</p>{% endfor %}
+                </div>
+                <div>
+                    <label for="{{ form.receipt_image.id_for_label }}" class="mb-2 block text-sm font-bold text-slate-900">Receipt screenshot</label>
+                    {{ form.receipt_image }}
+                    <p class="mt-2 text-xs text-slate-500">JPG, PNG or WebP. Maximum 5 MB.</p>
+                    {% for error in form.receipt_image.errors %}<p role="alert" class="mt-2 text-xs font-semibold text-red-700">{{ error }}</p>{% endfor %}
+                </div>
+                <button type="submit" class="w-full rounded-lg bg-orange-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-600">Submit payment proof</button>
+                <p class="text-xs leading-5 text-slate-500">Submitting proof sends it to the administrator for review. Your plan stays the same until that review is complete.</p>
+            </form>
+            {% endif %}
+        </section>
+    </div>
+    <a href="{% url 'accounts:plan_purchase_history' %}" class="mt-8 inline-block text-sm font-semibold text-orange-600 underline underline-offset-4">View all my payment requests</a>
+</div>
+
+<script>
+document.getElementById('copy-payment-link')?.addEventListener('click', async function () {
+    const feedback = document.getElementById('copy-feedback');
+    try {
+        await navigator.clipboard.writeText(document.getElementById('payment-link').href);
+        feedback.textContent = 'Copied';
+    } catch (_) {
+        feedback.textContent = 'Open the link above to copy it';
+    }
+});
+</script>
+{% endblock %}

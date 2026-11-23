@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-    # Ohmyfin Custom Apps
+    # Swifttrace Custom Apps
     'accounts',
     'tracker',
     'tools',

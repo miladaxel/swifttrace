@@ -30,6 +30,7 @@
     mobileToggle?.addEventListener('click', () => {
         mobileMenu.hidden = !mobileMenu.hidden;
         mobileToggle.setAttribute('aria-expanded', String(!mobileMenu.hidden));
+        mobileToggle.setAttribute('aria-label', mobileMenu.hidden ? 'Open menu' : 'Close menu');
         closeMenus();
     });
     document.addEventListener('keydown', event => {
@@ -39,6 +40,7 @@
         if (!mobileMenu.hidden) {
             mobileMenu.hidden = true;
             mobileToggle.setAttribute('aria-expanded', 'false');
+            mobileToggle.setAttribute('aria-label', 'Open menu');
             mobileToggle.focus();
         } else active?.focus();
     });
@@ -63,6 +65,7 @@
         if (!event.matches) return;
         mobileMenu.hidden = true;
         mobileToggle.setAttribute('aria-expanded', 'false');
+        mobileToggle.setAttribute('aria-label', 'Open menu');
     });
     document.querySelectorAll('[data-help]').forEach(button => {
         button.addEventListener('click', () => {
@@ -70,4 +73,23 @@
             button.setAttribute('aria-expanded', String(open));
         });
     });
+    const wireSearch = document.querySelector('[data-wire-search]');
+    if (wireSearch) {
+        const uetrFields = wireSearch.querySelector('[data-wire-uetr]');
+        const referenceFields = wireSearch.querySelector('[data-wire-reference]');
+        const modeButtons = [...wireSearch.querySelectorAll('[data-search-mode]')];
+        const setMode = (mode, clearOther = false) => {
+            uetrFields.hidden = mode !== 'uetr';
+            referenceFields.hidden = mode !== 'reference';
+            modeButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.searchMode === mode)));
+            if (clearOther) {
+                (mode === 'uetr' ? referenceFields : uetrFields).querySelectorAll('input').forEach(input => { input.value = ''; });
+            }
+        };
+        modeButtons.forEach(button => button.addEventListener('click', () => {
+            setMode(button.dataset.searchMode, true);
+            (button.dataset.searchMode === 'uetr' ? uetrFields : referenceFields).querySelector('input')?.focus();
+        }));
+        setMode(wireSearch.dataset.initialMode);
+    }
 })();

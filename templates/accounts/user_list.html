@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}User Management | Ohmyfin{% endblock %}
+{% block title %}User Management | Swifttrace{% endblock %}
 
 {% block content %}
 <div class="account-page py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -17,7 +17,11 @@
             <p class="text-sm text-slate-500 mt-1">Review, manage, search, and configure user accounts and platform permissions.</p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{% url 'accounts:purchase_review_list' %}" class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition flex items-center gap-2">
+                <i aria-hidden="true" class="fa-solid fa-receipt text-xs"></i>
+                <span>Payment Reviews{% if pending_count %} ({{ pending_count }}){% endif %}</span>
+            </a>
             <a href="{% url 'accounts:user_create' %}" class="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
                 <i aria-hidden="true" class="fa-solid fa-user-plus text-xs"></i>
                 <span>Add New User</span>
@@ -68,53 +72,93 @@
         </div>
     </div>
 
+    <section class="mb-8 overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-sm" aria-labelledby="pending-review-heading">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-orange-100 bg-orange-50 px-6 py-5">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-orange-700">Payment review queue</p>
+                <h2 id="pending-review-heading" class="mt-1 text-xl font-bold text-slate-900">{{ pending_count }} request{{ pending_count|pluralize }} waiting for a decision</h2>
+            </div>
+            <a href="{% url 'accounts:purchase_review_list' %}" class="rounded-lg bg-orange-500 px-4 py-2.5 text-xs font-bold text-white hover:bg-orange-600">Open review queue</a>
+        </div>
+        {% for purchase in pending_purchases %}
+        <a href="{% url 'accounts:purchase_review_detail' purchase.pk %}" class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4 text-sm last:border-0 hover:bg-slate-50">
+            <span class="font-semibold text-slate-900">{{ purchase.user.username }} <span class="font-normal text-slate-500">requested {{ purchase.tier }} · {{ purchase.price_usdt|floatformat:2 }} USDT</span></span>
+            <span class="font-mono text-xs text-slate-500">{{ purchase.submitted_at|date:'M d, H:i' }} UTC <span class="ml-2 text-orange-600" aria-hidden="true">→</span></span>
+        </a>
+        {% empty %}
+        <p class="px-6 py-5 text-sm text-slate-600">No payment proofs need review right now.</p>
+        {% endfor %}
+    </section>
+
     <!-- Filters & Search Toolbar -->
     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
 
         <!-- Role & Status Pills -->
         <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Role:</span>
-            <a href="?role=all{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'all' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="?role=all{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'all' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
                 All
             </a>
-            <a href="?role=superuser{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'superuser' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="?role=superuser{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'superuser' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
                 Superusers
             </a>
-            <a href="?role=staff{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'staff' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="?role=staff{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'staff' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
                 Staff
             </a>
-            <a href="?role=regular{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'regular' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="?role=regular{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-bold transition {% if role_filter == 'regular' %}bg-orange-500 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
                 Regular
             </a>
 
             <div class="h-4 w-px bg-slate-200 mx-1 hidden sm:block"></div>
 
             <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Status:</span>
-            <a href="?status=all{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'all' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="?status=all{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'all' %}bg-slate-800 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
                 All
             </a>
-            <a href="?status=active{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'active' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="?status=active{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'active' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
                 Active
             </a>
-            <a href="?status=inactive{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'inactive' %}bg-red-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+            <a href="?status=inactive{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if status_filter == 'inactive' %}bg-red-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
                 Inactive
             </a>
         </div>
 
         <!-- Search Input Form -->
-        <form method="GET" action="{% url 'accounts:user_list' %}" class="relative w-full md:w-80">
+        <form method="GET" action="{% url 'accounts:user_list' %}" class="flex w-full flex-wrap items-center gap-2 md:w-auto" role="search">
             {% if role_filter != 'all' %}<input type="hidden" name="role" value="{{ role_filter }}">{% endif %}
             {% if status_filter != 'all' %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+            {% if tier_filter != 'all' %}<input type="hidden" name="tier" value="{{ tier_filter }}">{% endif %}
+            <label for="user-search" class="sr-only">Search users</label>
             <input
-                type="text"
+                id="user-search"
+                type="search"
                 name="q"
                 value="{{ query }}"
                 placeholder="Search username, email, name..."
-                class="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800"
+                class="min-w-0 flex-1 px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-800 md:w-64"
             >
-            <i aria-hidden="true" class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+            <button type="submit" class="rounded-lg bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600">Search</button>
         </form>
 
+    </div>
+
+    <form method="get" action="{% url 'accounts:user_list' %}" class="mb-5 flex flex-wrap items-center gap-3 text-xs">
+        <label for="tier-filter" class="font-bold uppercase tracking-wider text-slate-500">Membership:</label>
+        {% if role_filter != 'all' %}<input type="hidden" name="role" value="{{ role_filter }}">{% endif %}
+        {% if status_filter != 'all' %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+        {% if query %}<input type="hidden" name="q" value="{{ query }}">{% endif %}
+        <select id="tier-filter" name="tier" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs" onchange="this.form.submit()">
+            <option value="all" {% if tier_filter == 'all' %}selected{% endif %}>All tiers</option>
+            <option value="free" {% if tier_filter == 'free' %}selected{% endif %}>Free</option>
+            <option value="silver" {% if tier_filter == 'silver' %}selected{% endif %}>Silver</option>
+            <option value="gold" {% if tier_filter == 'gold' %}selected{% endif %}>Gold</option>
+        </select>
+        <noscript><button type="submit" class="font-bold text-orange-600">Apply filter</button></noscript>
+    </form>
+
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600" role="status">
+        <span>{{ page_obj.paginator.count }} matching user{{ page_obj.paginator.count|pluralize }}{% if page_obj.paginator.count %} · showing {{ page_obj.start_index }}–{{ page_obj.end_index }}{% endif %}</span>
+        {% if query or role_filter != 'all' or status_filter != 'all' or tier_filter != 'all' %}<a href="{% url 'accounts:user_list' %}" class="font-bold text-orange-700 underline underline-offset-2">Clear filters</a>{% endif %}
     </div>
 
     <!-- Users Table -->
@@ -141,7 +185,7 @@
                         <td class="py-4 px-6">
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                                    {{ u.username|make_list|first|upper }}
+                                    <i class="fa-solid fa-user text-sm" aria-hidden="true"></i>
                                 </div>
                                 <div>
                                     <div class="font-bold text-slate-900 flex items-center gap-1.5">
@@ -182,7 +226,7 @@
                             {% endif %}
                         </td>
 
-                        <td class="py-4 px-6 font-semibold text-slate-700">{{ u.membership.tier|default:"Free" }}</td>
+                        <td class="py-4 px-6 font-semibold text-slate-700">{{ u.membership.tier|default:"Free" }}{% if u.membership.expires_at %}<span class="mt-1 block text-[10px] font-normal text-slate-500">Until {{ u.membership.expires_at|date:'M d, Y' }}</span>{% endif %}</td>
 
                         <!-- Status -->
                         <td class="py-4 px-6">
@@ -216,21 +260,24 @@
                         <!-- Actions -->
                         <td class="py-4 px-6 text-right">
                             <div class="flex items-center justify-end gap-1.5">
-                                <a href="{% url 'accounts:user_edit' u.pk %}" class="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition" title="Edit User">
-                                    <i aria-hidden="true" class="fa-solid fa-pen-to-square text-xs"></i>
+                                <a href="{% url 'accounts:user_edit' u.pk %}" class="px-2 py-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition font-semibold" aria-label="Edit {{ u.username }}">
+                                    Edit
                                 </a>
 
-                                <a href="{% url 'accounts:user_password' u.pk %}" class="p-2 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="Reset Password">
-                                    <i aria-hidden="true" class="fa-solid fa-key text-xs"></i>
+                                <a href="{% url 'accounts:user_password' u.pk %}" class="px-2 py-2 text-slate-700 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition font-semibold" aria-label="Reset password for {{ u.username }}">
+                                    Password
                                 </a>
 
                                 {% if u != request.user %}
-                                <a href="{% url 'accounts:user_toggle_status' u.pk %}" class="p-2 {% if u.is_active %}text-emerald-600 hover:text-red-600 hover:bg-red-50{% else %}text-slate-400 hover:text-emerald-600 hover:bg-emerald-50{% endif %} rounded-lg transition" title="{% if u.is_active %}Deactivate Account{% else %}Activate Account{% endif %}">
-                                    <i aria-hidden="true" class="fa-solid {% if u.is_active %}fa-user-check{% else %}fa-user-slash{% endif %} text-xs"></i>
-                                </a>
+                                <form method="post" action="{% url 'accounts:user_toggle_status' u.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="px-2 py-2 {% if u.is_active %}text-red-700 hover:bg-red-50{% else %}text-emerald-700 hover:bg-emerald-50{% endif %} rounded-lg transition font-semibold" aria-label="{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}">
+                                        {% if u.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
 
-                                <a href="{% url 'accounts:user_delete' u.pk %}" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete User">
-                                    <i aria-hidden="true" class="fa-solid fa-trash-can text-xs"></i>
+                                <a href="{% url 'accounts:user_delete' u.pk %}" class="px-2 py-2 text-red-700 hover:bg-red-50 rounded-lg transition font-semibold" aria-label="Delete {{ u.username }}">
+                                    Delete
                                 </a>
                                 {% endif %}
                             </div>
@@ -244,7 +291,7 @@
                                 <i aria-hidden="true" class="fa-solid fa-user-slash text-lg"></i>
                             </div>
                             <div class="text-sm font-bold text-slate-700">No users found</div>
-                            <p class="text-xs text-slate-400 mt-1">Try adjusting your search criteria or role filters.</p>
+                            <p class="text-xs text-slate-500 mt-1">Try another search or <a href="{% url 'accounts:user_list' %}" class="font-bold text-orange-700 underline">clear filters</a>.</p>
                         </td>
                     </tr>
                     {% endfor %}
@@ -260,13 +307,13 @@
             </div>
             <div class="flex items-center gap-2">
                 {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium">
+                <a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium">
                     Previous
                 </a>
                 {% endif %}
 
                 {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}" class="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium">
+                <a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if role_filter != 'all' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if tier_filter != 'all' %}&tier={{ tier_filter }}{% endif %}" class="px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 font-medium">
                     Next
                 </a>
                 {% endif %}
