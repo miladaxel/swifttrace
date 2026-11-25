@@ -2,7 +2,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
-from datetime import date, datetime
+from datetime import date, datetime, timezone as datetime_timezone
 from decimal import Decimal
 from io import BytesIO
 from tempfile import TemporaryDirectory
@@ -299,11 +299,11 @@ class PurchaseReviewTests(TestCase):
         self.assertEqual(UserMembership.objects.get(user=self.buyer).expires_at, first_expiry)
 
     def test_renewal_extends_same_plan_and_expiry_returns_to_free(self):
-        first_review = datetime(2026, 1, 31, 12, tzinfo=timezone.utc)
+        first_review = datetime(2026, 1, 31, 12, tzinfo=datetime_timezone.utc)
         with patch('accounts.purchase_review.timezone.now', return_value=first_review):
             self.client.post(self.action_url, {'decision': 'approved'})
         first_expiry = UserMembership.objects.get(user=self.buyer).expires_at
-        self.assertEqual(first_expiry, datetime(2026, 2, 28, 12, tzinfo=timezone.utc))
+        self.assertEqual(first_expiry, datetime(2026, 2, 28, 12, tzinfo=datetime_timezone.utc))
 
         self.silver.monthly_search_limit = 1
         self.silver.monthly_download_limit = 0
@@ -316,14 +316,14 @@ class PurchaseReviewTests(TestCase):
             status=PlanPurchase.SUBMITTED, txid='reviewtx002',
             receipt_image=PlanPurchaseTests.receipt(), submitted_at=timezone.now(),
         )
-        second_review = datetime(2026, 2, 10, 12, tzinfo=timezone.utc)
+        second_review = datetime(2026, 2, 10, 12, tzinfo=datetime_timezone.utc)
         with patch('accounts.purchase_review.timezone.now', return_value=second_review):
             self.client.post(reverse('accounts:purchase_review_action', args=[renewal.pk]), {'decision': 'approved'})
         membership = UserMembership.objects.get(user=self.buyer)
-        self.assertEqual(membership.expires_at, datetime(2026, 3, 28, 12, tzinfo=timezone.utc))
+        self.assertEqual(membership.expires_at, datetime(2026, 3, 28, 12, tzinfo=datetime_timezone.utc))
         self.assertEqual((membership.monthly_search_limit, membership.monthly_download_limit), (self.purchase.monthly_search_limit, self.purchase.monthly_download_limit))
 
-        with patch('accounts.quotas.timezone.now', return_value=datetime(2026, 3, 29, 12, tzinfo=timezone.utc)):
+        with patch('accounts.quotas.timezone.now', return_value=datetime(2026, 3, 29, 12, tzinfo=datetime_timezone.utc)):
             self.assertEqual(membership_for(self.buyer).tier_id, 'free')
         membership.refresh_from_db()
         self.assertIsNone(membership.expires_at)
@@ -511,7 +511,7 @@ class AccountsAuthTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context['user'].is_authenticated)
-        self.assertFormError(response, 'form', None, "Invalid username/email or password.")
+        self.assertFormError(response.context['form'], None, "Invalid username/email or password.")
 
     def test_login_inactive_user(self):
         self.user.is_active = False
@@ -521,7 +521,7 @@ class AccountsAuthTests(TestCase):
             'password': self.password,
         })
         self.assertEqual(response.status_code, 200)
-        self.assertFormError(response, 'form', None, "This user account is inactive. Please contact an administrator.")
+        self.assertFormError(response.context['form'], None, "This user account is inactive. Please contact an administrator.")
 
     def test_logout(self):
         self.client.login(username='testuser', password=self.password)
@@ -563,7 +563,7 @@ class AccountsAuthTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username='newuser2').exists())
-        self.assertFormError(response, 'form', 'confirm_password', "Passwords do not match.")
+        self.assertFormError(response.context['form'], 'confirm_password', "Passwords do not match.")
 
     def test_profile_view_update(self):
         self.client.login(username='testuser', password=self.password)

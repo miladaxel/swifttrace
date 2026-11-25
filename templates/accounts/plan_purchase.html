@@ -13,12 +13,12 @@
     <div class="mb-9 max-w-3xl">
         <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-orange-600">Payment request / {{ purchase.id }}</p>
         <h1 class="font-display text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Pay for {{ purchase.tier }}.</h1>
-        <p class="mt-4 text-base leading-7 text-slate-600">{% if purchase.is_demo_payment %}This is a test payment request. Open the sample link or scan its QR code, then submit a sample transaction ID and receipt image to test the review flow. Do not send real USDT.{% else %}Use the payment link or scan the QR code. Then return here with your transaction ID and a screenshot of the transfer.{% endif %}</p>
+        <p class="mt-4 text-base leading-7 text-slate-600">Open the payment link or scan its QR code. Then return here to submit a transaction ID and receipt image for review.</p>
     </div>
 
     <ol class="mb-8 grid gap-3 text-sm sm:grid-cols-3" aria-label="Payment steps">
         <li class="rounded-xl border border-slate-200 bg-white px-4 py-3"><span class="mr-3 font-mono text-orange-600">01</span><strong class="text-slate-800">Plan selected</strong></li>
-        <li class="rounded-xl border border-slate-200 bg-white px-4 py-3"><span class="mr-3 font-mono text-orange-600">02</span><strong class="text-slate-800">{% if purchase.is_demo_payment %}Open test link{% else %}Pay in USDT{% endif %}</strong></li>
+        <li class="rounded-xl border border-slate-200 bg-white px-4 py-3"><span class="mr-3 font-mono text-orange-600">02</span><strong class="text-slate-800">Open payment link</strong></li>
         <li class="rounded-xl border border-slate-200 bg-white px-4 py-3"><span class="mr-3 font-mono text-orange-600">03</span><strong class="text-slate-800">Send proof</strong></li>
     </ol>
 
@@ -43,7 +43,7 @@
                 </div>
                 <div class="min-w-0">
                     <p class="text-sm font-semibold text-white">Scan to open the payment link</p>
-                    <p class="mt-2 text-xs leading-5 text-slate-300">{% if purchase.is_demo_payment %}This QR code contains a sample link. It does not collect a payment. Do not send real USDT.{% else %}Check the network and exact amount before you send USDT. The QR code contains the link below.{% endif %}</p>
+                    <p class="mt-2 text-xs leading-5 text-slate-300">The QR code opens the link below. Check the network and exact amount before completing a payment.</p>
                     <a id="payment-link" href="{{ purchase.payment_url }}" target="_blank" rel="noopener noreferrer" class="mt-4 block break-all rounded-lg border border-slate-600 bg-slate-800 p-3 font-mono text-xs leading-5 text-orange-200 underline underline-offset-2">{{ purchase.payment_url }}</a>
                     <button type="button" id="copy-payment-link" class="mt-3 rounded-lg border border-slate-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-700">Copy payment link</button>
                     <span id="copy-feedback" class="ml-2 text-xs text-slate-300" role="status" aria-live="polite"></span>
@@ -78,7 +78,7 @@
             {% else %}
             <p class="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-orange-600">After payment</p>
             <h2 id="proof-heading" class="font-display text-2xl font-bold text-slate-900">Send your payment proof.</h2>
-            <p class="mt-3 text-sm leading-6 text-slate-600">{% if purchase.is_demo_payment %}Enter a sample TXID and upload a test image to send this request to the administrator.{% else %}Copy the TXID from your wallet and upload a clear image showing the completed transfer.{% endif %}</p>
+            <p class="mt-3 text-sm leading-6 text-slate-600">Enter the transaction ID and upload a receipt image to send this request to the administrator.</p>
             <form method="post" enctype="multipart/form-data" class="mt-7 space-y-6">
                 {% csrf_token %}
                 {% if form.non_field_errors %}<div role="alert" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
