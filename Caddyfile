@@ -1,0 +1,4 @@
+swifttrace.online, www.swifttrace.online {
+    encode zstd gzip
+    reverse_proxy web:8000
+}

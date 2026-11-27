@@ -37,6 +37,7 @@ from .forms import (
 )
 from .models import MembershipTier, PlanPurchase
 from .purchase_review import review_purchase
+from .rate_limit import record_login_attempt
 from .quotas import expire_memberships, limits_for, membership_for, quota_status, tier_for
 
 User = get_user_model()
@@ -69,6 +70,13 @@ def login_view(request):
 
     if request.method == 'POST':
         form = UserLoginForm(request.POST)
+        allowed, retry_after = record_login_attempt(request)
+        if not allowed:
+            form.add_error(None, 'Too many sign-in attempts. Please try again later.')
+            response = render(request, 'accounts/login.html', {'form': form, 'next': next_url}, status=429)
+            response['Retry-After'] = str(retry_after)
+            response['Cache-Control'] = 'private, no-store'
+            return response
         if form.is_valid():
             user = form.get_user()
             auth_login(request, user)

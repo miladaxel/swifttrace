@@ -1,5 +1,4 @@
 from django.shortcuts import render
-from tracker.models import WireTransfer
 from accounts.models import MembershipTier
 
 
@@ -7,11 +6,7 @@ def home_view(request):
     """
     Public homepage for the administrator-managed payment record portal.
     """
-    total_tracked = WireTransfer.objects.filter(is_published=True).count()
-
-    return render(request, 'pages/home.html', {
-        'total_tracked': total_tracked,
-    })
+    return render(request, 'pages/home.html')
 
 
 def for_business_view(request):

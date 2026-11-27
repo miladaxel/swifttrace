@@ -1,7 +1,11 @@
 from django.test import TestCase, Client
+from django.contrib.auth import get_user_model
+from django.core.cache import caches
+from django.core.cache.utils import make_template_fragment_key
 from django.urls import reverse
 from decimal import Decimal
 from datetime import date
+import re
 from tracker.models import WireTransfer
 
 
@@ -37,3 +41,27 @@ class HomePageTests(TestCase):
         self.assertIn("After You Send", content)
         self.assertIn("Instant Wire Tracker", content)
         self.assertNotIn("HSBC-FT-20260331-59427", content)
+
+    def test_homepage_cache_keeps_user_and_csrf_content_dynamic(self):
+        fragment_cache = caches['home_fragments']
+        fragment_cache.clear()
+        anonymous = Client()
+        anonymous_response = anonymous.get(reverse('pages:home'))
+
+        key = make_template_fragment_key('home_static_sections_v1')
+        cached_fragment = fragment_cache.get(key)
+        self.assertIsNotNone(cached_fragment)
+        self.assertIn('Banks & BIC Codes', cached_fragment)
+        self.assertNotIn('csrfmiddlewaretoken', cached_fragment)
+
+        user = get_user_model().objects.create_user(username='cache-member', password='test-password')
+        authenticated = Client()
+        authenticated.force_login(user)
+        authenticated_response = authenticated.get(reverse('pages:home'))
+
+        self.assertNotIn('Account: cache-member', anonymous_response.content.decode())
+        self.assertIn('Account: cache-member', authenticated_response.content.decode())
+        token_pattern = rb'name="csrfmiddlewaretoken" value="([^"]+)"'
+        anonymous_token = re.search(token_pattern, anonymous_response.content).group(1)
+        authenticated_token = re.search(token_pattern, authenticated_response.content).group(1)
+        self.assertNotEqual(anonymous_token, authenticated_token)

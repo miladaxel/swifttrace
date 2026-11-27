@@ -13,7 +13,10 @@ from django.utils import timezone
 from .models import WireTransfer, TransferSourceDocument, TrackerSettings
 from .services import MT103Parser
 from .forms import WireTransferSearchForm
-from .rate_limit import record_search_attempt
+from .rate_limit import (
+    record_account_search_attempt, record_result_view, record_search_attempt,
+    start_result_view_window,
+)
 from accounts.quotas import consume_quota
 
 
@@ -26,20 +29,17 @@ def wire_transfer_view(request):
 
     form = WireTransferSearchForm(request.POST or None)
     if request.method == 'POST':
-        if not request.user.is_authenticated:
+        if request.user.is_authenticated:
+            allowed, retry_after = record_account_search_attempt(request)
+        else:
             allowed, retry_after = record_search_attempt(request)
-            if not allowed:
-                response = render(request, 'tracker/wire_transfer.html', {
-                    'form': form,
-                    'rate_limit_message': 'Too many searches. Please try again in a few minutes.',
-                }, status=429)
-                response['Retry-After'] = str(retry_after)
-                return response
-        if not consume_quota(request, 'searches'):
-            return render(request, 'tracker/wire_transfer.html', {
+        if not allowed:
+            response = render(request, 'tracker/wire_transfer.html', {
                 'form': form,
-                'rate_limit_message': 'Monthly search limit reached. Your quota resets next month.',
+                'rate_limit_message': 'Too many searches. Please try again later.',
             }, status=429)
+            response['Retry-After'] = str(retry_after)
+            return response
     if request.method == 'POST' and form.is_valid():
         data = form.cleaned_data
         matches = WireTransfer.objects.filter(is_published=True)
@@ -60,8 +60,15 @@ def wire_transfer_view(request):
         elif len(found) > 1:
             form.add_error(None, 'More than one document matches. Add the UETR or currency to narrow your search.')
         else:
+            if not consume_quota(request, 'searches'):
+                return render(request, 'tracker/wire_transfer.html', {
+                    'form': form,
+                    'rate_limit_message': 'Monthly search limit reached. Your quota resets next month.',
+                }, status=429)
+            grant = start_result_view_window(found[0])
             request.session['found_transfer_id'] = found[0].pk
-            request.session['found_transfer_expires_at'] = int(timezone.now().timestamp()) + settings.WIRE_RESULT_ACCESS_SECONDS
+            request.session['found_transfer_expires_at'] = int(grant.expires_at.timestamp())
+            request.session['found_transfer_view_grant'] = str(grant.pk)
             return redirect('tracker:tracking_result', transfer_id=found[0].pk)
 
     return render(request, 'tracker/wire_transfer.html', {'form': form})
@@ -81,6 +88,14 @@ def tracking_result_view(request, transfer_id):
         or request.session.get('found_transfer_expires_at', 0) <= int(timezone.now().timestamp())
     ):
         raise Http404('Search for this document first.')
+    if not can_view_full:
+        result_view = record_result_view(request.session.get('found_transfer_view_grant'), transfer.pk)
+        if result_view is None:
+            raise Http404('Search for this document first.')
+        if not result_view:
+            response = HttpResponse('Result view limit reached. Search again to reopen this record.', status=429)
+            response['X-Robots-Tag'] = 'noindex, nofollow'
+            return response
     response = render(request, 'tracker/tracking_result.html', {
         'transfer': transfer, 'can_view_full': can_view_full,
     })

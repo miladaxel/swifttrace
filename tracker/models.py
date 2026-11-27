@@ -255,6 +255,21 @@ class SearchRateWindow(models.Model):
         indexes = [models.Index(fields=['window_start'], name='wire_search_window_idx')]
 
 
+class AccountSearchAttempt(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['user', 'created_at'], name='acct_search_user_time_idx')]
+
+
+class ResultViewWindow(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transfer = models.ForeignKey(WireTransfer, on_delete=models.CASCADE)
+    expires_at = models.DateTimeField(db_index=True)
+    views = models.PositiveIntegerField(default=0)
+
+
 class TrackerSettings(models.Model):
     require_login = models.BooleanField(
         default=False,

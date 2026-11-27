@@ -136,6 +136,16 @@ class PlanPurchase(models.Model):
         return self.payment_url == f'https://example.com/?swifttrace-demo={self.tier_id}'
 
 
+class LoginRateWindow(models.Model):
+    lookup_key = models.CharField(max_length=64)
+    window_start = models.DateTimeField()
+    attempts = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['lookup_key', 'window_start'], name='unique_login_rate_window')]
+        indexes = [models.Index(fields=['window_start'], name='login_rate_window_idx')]
+
+
 class MonthlyUsage(models.Model):
     identity = models.CharField(max_length=80)
     month = models.DateField()

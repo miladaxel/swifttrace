@@ -11,8 +11,9 @@ from unittest.mock import patch
 from types import SimpleNamespace
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from .admin import WireTransferAdmin
-from .models import WireTransfer, TrackingStep, TransferSourceDocument, TransferStatusHistory, SearchRateWindow, TrackerSettings
+from .models import AccountSearchAttempt, ResultViewWindow, WireTransfer, TrackingStep, TransferSourceDocument, TransferStatusHistory, SearchRateWindow, TrackerSettings
 from .services import MT103Parser
 from .storage import private_document_storage
 from .rate_limit import get_client_ip, cleanup_expired_search_windows
@@ -527,6 +528,30 @@ class PublicSearchPrivacyTests(TestCase):
         session.save()
         self.assertEqual(client.get(result_url).status_code, 404)
 
+    def test_result_page_is_limited_to_30_views_per_successful_search(self):
+        client = Client()
+        search_url = reverse('tracker:wire_transfer')
+        query = {'uetr': self.transfer.uetr, 'consent': 'on'}
+        self.assertEqual(client.post(search_url, query).status_code, 302)
+        result_url = reverse('tracker:tracking_result', args=[self.transfer.pk])
+        self.assertEqual(Client().get(result_url).status_code, 404)
+
+        for _ in range(30):
+            self.assertEqual(client.get(result_url).status_code, 200)
+        grant = ResultViewWindow.objects.get()
+        self.assertEqual(grant.views, 30)
+        blocked = client.get(result_url)
+        self.assertContains(blocked, 'Result view limit reached', status_code=429)
+        self.assertIn('no-store', blocked['Cache-Control'])
+        grant.refresh_from_db()
+        self.assertEqual(grant.views, 30)
+        self.assertEqual(MonthlyUsage.objects.get().searches, 1)
+
+        self.assertEqual(client.post(search_url, query).status_code, 302)
+        self.assertEqual(client.get(result_url).status_code, 200)
+        self.assertEqual(MonthlyUsage.objects.get().searches, 2)
+        self.assertEqual(ResultViewWindow.objects.count(), 2)
+
     @override_settings(WIRE_SEARCH_LIMIT=2)
     def test_search_rate_limit_counts_attempts_without_storing_ip(self):
         client = Client()
@@ -784,6 +809,79 @@ class PublicSearchPrivacyTests(TestCase):
 
 
 class MembershipViewTests(TestCase):
+    @override_settings(ACCOUNT_SEARCH_RATE_LIMIT=2, ACCOUNT_SEARCH_WINDOW_SECONDS=3600)
+    def test_account_search_requests_are_limited_across_ips_for_a_rolling_hour(self):
+        user = get_user_model().objects.create_user(username='hourly-search-user', password='test-password')
+        other = get_user_model().objects.create_user(username='other-search-user', password='test-password')
+        transfer = WireTransfer.objects.create(
+            uetr='e1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b',
+            date_of_payment=timezone.localdate(), amount='100.00', currency='USD', is_published=True,
+        )
+        self.client.force_login(user)
+        search_url = reverse('tracker:wire_transfer')
+        missing = {'uetr': 'd1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b', 'consent': 'on'}
+        found = {'uetr': transfer.uetr, 'consent': 'on'}
+        start = datetime(2026, 11, 27, 12, tzinfo=datetime_timezone.utc)
+        with patch('tracker.rate_limit.timezone.now', return_value=start):
+            self.assertEqual(self.client.post(search_url, missing, REMOTE_ADDR='198.51.100.1').status_code, 200)
+            self.assertEqual(self.client.post(search_url, {'uetr': 'invalid', 'consent': 'on'}, REMOTE_ADDR='198.51.100.2').status_code, 200)
+            blocked = self.client.post(search_url, found, REMOTE_ADDR='198.51.100.3')
+            self.assertEqual(blocked.status_code, 429)
+            self.assertEqual(blocked['Retry-After'], '3600')
+            self.assertEqual(AccountSearchAttempt.objects.filter(user=user).count(), 2)
+            self.assertFalse(MonthlyUsage.objects.filter(identity=f'user:{user.pk}').exists())
+
+            other_client = Client()
+            other_client.force_login(other)
+            self.assertEqual(other_client.post(search_url, found, REMOTE_ADDR='198.51.100.1').status_code, 302)
+
+        with patch('tracker.rate_limit.timezone.now', return_value=start + timedelta(seconds=3599)):
+            blocked = self.client.post(search_url, found)
+            self.assertEqual(blocked.status_code, 429)
+            self.assertEqual(blocked['Retry-After'], '1')
+        with patch('tracker.rate_limit.timezone.now', return_value=start + timedelta(seconds=3600)):
+            self.assertEqual(self.client.post(search_url, found).status_code, 302)
+        self.assertEqual(MonthlyUsage.objects.get(identity=f'user:{user.pk}').searches, 1)
+
+    def test_only_unique_published_matches_consume_monthly_search_quota(self):
+        user = get_user_model().objects.create_user(username='search-quota-member', password='test-password')
+        self.client.force_login(user)
+        free = MembershipTier.objects.get(level='free')
+        free.monthly_search_limit = 1
+        free.save(update_fields=['monthly_search_limit'])
+        first = WireTransfer.objects.create(
+            uetr='a1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b', reference_number='SHARED-REF',
+            date_of_payment=timezone.localdate(), amount='100.00', currency='USD', is_published=True,
+        )
+        second = WireTransfer.objects.create(
+            uetr='b1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b', reference_number='SHARED-REF',
+            date_of_payment=timezone.localdate(), amount='100.00', currency='EUR', is_published=True,
+        )
+        unpublished = WireTransfer.objects.create(
+            uetr='c1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b',
+            date_of_payment=timezone.localdate(), amount='100.00', currency='USD', is_published=False,
+        )
+        search_url = reverse('tracker:wire_transfer')
+        missing = {'uetr': 'd1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b', 'consent': 'on'}
+        invalid = {'uetr': 'invalid', 'consent': 'on'}
+        ambiguous = {
+            'reference': 'SHARED-REF', 'date_of_payment': str(timezone.localdate()),
+            'amount': '100.00', 'consent': 'on',
+        }
+        for query in (invalid, missing, ambiguous, {'uetr': unpublished.uetr, 'consent': 'on'}):
+            self.assertEqual(self.client.post(search_url, query).status_code, 200)
+        self.assertFalse(MonthlyUsage.objects.filter(identity=f'user:{user.pk}').exists())
+
+        self.assertEqual(self.client.post(search_url, {'uetr': first.uetr, 'consent': 'on'}).status_code, 302)
+        usage = MonthlyUsage.objects.get(identity=f'user:{user.pk}')
+        self.assertEqual(usage.searches, 1)
+        self.assertEqual(self.client.post(search_url, missing).status_code, 200)
+        blocked = self.client.post(search_url, {'uetr': second.uetr, 'consent': 'on'})
+        self.assertEqual(blocked.status_code, 429)
+        self.assertEqual(self.client.get(reverse('tracker:tracking_result', args=[second.pk])).status_code, 404)
+        usage.refresh_from_db()
+        self.assertEqual(usage.searches, 1)
+
     def test_superuser_is_exempt_from_membership_limits(self):
         admin_user = get_user_model().objects.create_superuser(
             username='quota-admin-view', email='quota-admin@example.com', password='test-password'

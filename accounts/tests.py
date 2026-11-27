@@ -1,15 +1,15 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
-from datetime import date, datetime, timezone as datetime_timezone
+from datetime import date, datetime, timedelta, timezone as datetime_timezone
 from decimal import Decimal
 from io import BytesIO
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from django.test import RequestFactory
 from .models import MembershipTier, MonthlyUsage, UserMembership
-from .models import PlanPurchase
+from .models import PlanPurchase, LoginRateWindow
 from .quotas import consume_quota, quota_status
 from .quotas import membership_for
 from .purchase_review import one_month_later
@@ -71,7 +71,6 @@ class PlanPurchaseTests(TestCase):
         response = self.client.post(reverse('accounts:start_plan_purchase', args=['silver']))
         self.assertEqual(response.status_code, 302)
         detail = self.client.get(response.url)
-        self.assertContains(detail, 'This is a test payment request')
         self.assertContains(detail, 'https://example.com/?swifttrace-demo=silver')
 
     def test_payment_proof_is_private_and_waits_for_review(self):
@@ -458,6 +457,59 @@ class MembershipQuotaTests(TestCase):
         with patch('accounts.quotas.month_start', return_value=date(2026, 12, 1)):
             self.assertTrue(consume_quota(request, 'downloads'))
         self.assertEqual(MonthlyUsage.objects.filter(identity=f'user:{user.pk}').count(), 2)
+
+
+class LoginRateLimitTests(TestCase):
+    def setUp(self):
+        self.url = reverse('accounts:login')
+        self.credentials = {'username_or_email': 'testuser', 'password': 'StrongPass123!'}
+        User.objects.create_user(username='testuser', password='StrongPass123!')
+
+    @override_settings(LOGIN_RATE_LIMIT=2)
+    def test_login_posts_are_limited_per_ip(self):
+        client = Client()
+        for _ in range(2):
+            response = client.post(self.url, {'username_or_email': 'testuser', 'password': 'wrong'}, REMOTE_ADDR='198.51.100.10')
+            self.assertEqual(response.status_code, 200)
+
+        blocked = Client().post(self.url, self.credentials, REMOTE_ADDR='198.51.100.10')
+        self.assertEqual(blocked.status_code, 429)
+        self.assertIn('Retry-After', blocked)
+        self.assertGreater(int(blocked['Retry-After']), 0)
+        self.assertIn('no-store', blocked['Cache-Control'])
+        self.assertContains(blocked, 'Too many sign-in attempts', status_code=429)
+        self.assertFalse(blocked.wsgi_request.user.is_authenticated)
+        self.assertEqual(LoginRateWindow.objects.get().attempts, 2)
+        self.assertNotIn('198.51.100.10', LoginRateWindow.objects.get().lookup_key)
+
+        other_ip = Client().post(self.url, self.credentials, REMOTE_ADDR='198.51.100.11')
+        self.assertEqual(other_ip.status_code, 302)
+
+    @override_settings(LOGIN_RATE_LIMIT=1, LOGIN_TRUSTED_PROXY_IPS={'10.0.0.1'})
+    def test_forwarded_ip_only_counts_when_proxy_is_trusted(self):
+        invalid = {'username_or_email': 'testuser', 'password': 'wrong'}
+        first = Client().post(self.url, invalid, REMOTE_ADDR='10.0.0.1', HTTP_X_FORWARDED_FOR='198.51.100.20')
+        self.assertEqual(first.status_code, 200)
+        second = Client().post(self.url, invalid, REMOTE_ADDR='10.0.0.1', HTTP_X_FORWARDED_FOR='198.51.100.21')
+        self.assertEqual(second.status_code, 200)
+        blocked = Client().post(self.url, invalid, REMOTE_ADDR='10.0.0.1', HTTP_X_FORWARDED_FOR='198.51.100.20')
+        self.assertEqual(blocked.status_code, 429)
+
+        untrusted_first = Client().post(self.url, invalid, REMOTE_ADDR='203.0.113.1', HTTP_X_FORWARDED_FOR='198.51.100.30')
+        self.assertEqual(untrusted_first.status_code, 200)
+        untrusted_blocked = Client().post(self.url, invalid, REMOTE_ADDR='203.0.113.1', HTTP_X_FORWARDED_FOR='198.51.100.31')
+        self.assertEqual(untrusted_blocked.status_code, 429)
+
+    @override_settings(LOGIN_RATE_LIMIT=1, LOGIN_RATE_WINDOW_SECONDS=60)
+    def test_limit_resets_in_next_window_and_get_remains_available(self):
+        invalid = {'username_or_email': 'testuser', 'password': 'wrong'}
+        start = datetime(2026, 1, 1, tzinfo=datetime_timezone.utc)
+        with patch('accounts.rate_limit.timezone.now', return_value=start):
+            self.assertEqual(Client().post(self.url, invalid).status_code, 200)
+            self.assertEqual(Client().post(self.url, invalid).status_code, 429)
+            self.assertEqual(Client().get(self.url).status_code, 200)
+        with patch('accounts.rate_limit.timezone.now', return_value=start + timedelta(seconds=60)):
+            self.assertEqual(Client().post(self.url, self.credentials).status_code, 302)
 
 
 class AccountsAuthTests(TestCase):

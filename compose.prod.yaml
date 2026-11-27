@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-ohmyfin}
+      POSTGRES_USER: ${DB_USER:-ohmyfin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ohmyfin} -d ${DB_NAME:-ohmyfin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_DEBUG: "false"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Set DJANGO_ALLOWED_HOSTS in .env}
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-ohmyfin}
+      DB_USER: ${DB_USER:-ohmyfin}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      LOGIN_TRUSTED_PROXY_IPS: 172.30.55.2
+      WIRE_TRUSTED_PROXY_IPS: 172.30.55.2
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - media_data:/app/media
+      - private_documents_data:/app/private_documents
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    networks:
+      backend:
+        ipv4_address: 172.30.55.2
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: 172.30.55.0/28
+
+volumes:
+  postgres_data:
+  media_data:
+  private_documents_data:
+  caddy_data:
+  caddy_config:

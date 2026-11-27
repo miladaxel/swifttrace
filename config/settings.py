@@ -71,6 +71,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+if DEBUG:
+    INSTALLED_APPS.append('debug_toolbar')
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
+    INTERNAL_IPS = ['127.0.0.1', '::1']
+
 if not DEBUG:
     MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
@@ -94,6 +99,16 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+# Only the public, static body fragment of the homepage uses this bounded cache.
+CACHES = {
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    'home_fragments': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'home-static-fragments',
+        'OPTIONS': {'MAX_ENTRIES': 1},
+    },
+}
 
 
 # Database
@@ -182,9 +197,23 @@ if not DEBUG and env_bool('DJANGO_TRUST_X_FORWARDED_PROTO', False):
 
 WIRE_SEARCH_LIMIT = 20
 WIRE_SEARCH_WINDOW_SECONDS = 15 * 60
+ACCOUNT_SEARCH_RATE_LIMIT = int(environ.get('ACCOUNT_SEARCH_RATE_LIMIT', '30'))
+ACCOUNT_SEARCH_WINDOW_SECONDS = int(environ.get('ACCOUNT_SEARCH_WINDOW_SECONDS', '3600'))
+if ACCOUNT_SEARCH_RATE_LIMIT < 1 or ACCOUNT_SEARCH_WINDOW_SECONDS < 1:
+    raise ImproperlyConfigured('Account search rate limit and window must be positive integers.')
 WIRE_RESULT_ACCESS_SECONDS = 15 * 60
+WIRE_RESULT_VIEW_LIMIT = int(environ.get('WIRE_RESULT_VIEW_LIMIT', '30'))
+if WIRE_RESULT_VIEW_LIMIT < 1:
+    raise ImproperlyConfigured('WIRE_RESULT_VIEW_LIMIT must be a positive integer.')
 WIRE_TRUSTED_PROXY_IPS = {
     address.strip() for address in environ.get('WIRE_TRUSTED_PROXY_IPS', '').split(',') if address.strip()
+}
+LOGIN_RATE_LIMIT = int(environ.get('LOGIN_RATE_LIMIT', '20'))
+LOGIN_RATE_WINDOW_SECONDS = int(environ.get('LOGIN_RATE_WINDOW_SECONDS', '900'))
+if LOGIN_RATE_LIMIT < 1 or LOGIN_RATE_WINDOW_SECONDS < 1:
+    raise ImproperlyConfigured('Login rate limit and window must be positive integers.')
+LOGIN_TRUSTED_PROXY_IPS = {
+    address.strip() for address in environ.get('LOGIN_TRUSTED_PROXY_IPS', '').split(',') if address.strip()
 }
 
 # Default primary key field type

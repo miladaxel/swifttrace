@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load cache %}
 
 {% block title %}Swifttrace | AI Treasury Assistant & Cross-Border Payment Intelligence{% endblock %}
 
@@ -211,6 +212,7 @@
     </div>
 </section>
 
+{% cache 600 home_static_sections_v1 using="home_fragments" %}
 <!-- Scale & Banking Intelligence Metrics Bar (Swifttrace Signature Metrics) -->
 <section class="py-12 bg-white border-b border-slate-200/80">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -598,6 +600,7 @@
     </div>
 </section>
 
+{% endcache %}
 {% endblock %}
 
 {% block extra_scripts %}
