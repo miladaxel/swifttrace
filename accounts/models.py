@@ -146,6 +146,16 @@ class LoginRateWindow(models.Model):
         indexes = [models.Index(fields=['window_start'], name='login_rate_window_idx')]
 
 
+class RegistrationRateWindow(models.Model):
+    lookup_key = models.CharField(max_length=64)
+    window_start = models.DateTimeField()
+    attempts = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['lookup_key', 'window_start'], name='unique_registration_rate_window')]
+        indexes = [models.Index(fields=['window_start'], name='registration_rate_window_idx')]
+
+
 class MonthlyUsage(models.Model):
     identity = models.CharField(max_length=80)
     month = models.DateField()

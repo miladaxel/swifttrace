@@ -8,7 +8,7 @@ from django.utils.crypto import salted_hmac
 
 from tracker.rate_limit import get_client_ip
 
-from .models import LoginRateWindow
+from .models import LoginRateWindow, RegistrationRateWindow
 
 
 def record_login_attempt(request):
@@ -34,3 +34,36 @@ def record_login_attempt(request):
         attempts__lt=settings.LOGIN_RATE_LIMIT,
     ).update(attempts=F('attempts') + 1)
     return bool(allowed), retry_after
+
+
+def _record_registration_event(request, purpose, limit, window_seconds):
+    now = timezone.now()
+    window_epoch = int(now.timestamp()) // window_seconds * window_seconds
+    window_start = datetime.fromtimestamp(window_epoch, tz=utc_timezone.utc)
+    retry_after = max(1, window_epoch + window_seconds - int(now.timestamp()))
+    client_ip = get_client_ip(request, settings.LOGIN_TRUSTED_PROXY_IPS)
+    lookup_key = salted_hmac(f'account-registration-{purpose}', client_ip, algorithm='sha256').hexdigest()
+
+    if random.random() < 0.05:
+        retention = max(settings.REGISTER_ATTEMPT_WINDOW_SECONDS, settings.REGISTER_SUCCESS_WINDOW_SECONDS, 86400)
+        RegistrationRateWindow.objects.filter(window_start__lt=now - timedelta(seconds=retention)).delete()
+
+    RegistrationRateWindow.objects.get_or_create(
+        lookup_key=lookup_key, window_start=window_start, defaults={'attempts': 0},
+    )
+    allowed = RegistrationRateWindow.objects.filter(
+        lookup_key=lookup_key, window_start=window_start, attempts__lt=limit,
+    ).update(attempts=F('attempts') + 1)
+    return bool(allowed), retry_after
+
+
+def record_registration_attempt(request):
+    return _record_registration_event(
+        request, 'attempt', settings.REGISTER_ATTEMPT_LIMIT, settings.REGISTER_ATTEMPT_WINDOW_SECONDS,
+    )
+
+
+def reserve_registration_success(request):
+    return _record_registration_event(
+        request, 'success', settings.REGISTER_SUCCESS_LIMIT, settings.REGISTER_SUCCESS_WINDOW_SECONDS,
+    )

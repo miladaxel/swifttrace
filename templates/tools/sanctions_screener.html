@@ -10,10 +10,11 @@
         <p class="text-sm text-slate-600 mt-3">Test approximate matching against three fictional names. This demonstration does not search official sanctions lists or provide a compliance decision.</p>
     </div>
     <div class="reference-card bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+        {% if rate_limit_message or input_error %}<p class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{% if rate_limit_message %}{{ rate_limit_message }}{% else %}{{ input_error }}{% endif %}</p>{% endif %}
         <form method="post">
             {% csrf_token %}
             <label for="id_query" class="block text-xs font-bold text-slate-700 uppercase">Name to compare</label>
-            <input type="text" id="id_query" name="query" value="{{ query }}" placeholder="Sample Entity Alpha" required class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm">
+            <input type="text" id="id_query" name="query" maxlength="128" value="{{ query }}" placeholder="Sample Entity Alpha" required class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm">
             <button type="submit" class="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl">Compare with fictional samples</button>
         </form>
         <div class="mt-4 text-xs text-slate-500">Try: <button type="button" onclick="document.getElementById('id_query').value='Sample Entity Alpha'" class="text-orange-600 underline">Sample Entity Alpha</button> or <button type="button" onclick="document.getElementById('id_query').value='Sample Bank Beta'" class="text-orange-600 underline">Sample Bank Beta</button></div>

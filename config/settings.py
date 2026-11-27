@@ -198,9 +198,10 @@ if not DEBUG and env_bool('DJANGO_TRUST_X_FORWARDED_PROTO', False):
 WIRE_SEARCH_LIMIT = 20
 WIRE_SEARCH_WINDOW_SECONDS = 15 * 60
 ACCOUNT_SEARCH_RATE_LIMIT = int(environ.get('ACCOUNT_SEARCH_RATE_LIMIT', '30'))
+ACCOUNT_SEARCH_IP_RATE_LIMIT = int(environ.get('ACCOUNT_SEARCH_IP_RATE_LIMIT', '30'))
 ACCOUNT_SEARCH_WINDOW_SECONDS = int(environ.get('ACCOUNT_SEARCH_WINDOW_SECONDS', '3600'))
-if ACCOUNT_SEARCH_RATE_LIMIT < 1 or ACCOUNT_SEARCH_WINDOW_SECONDS < 1:
-    raise ImproperlyConfigured('Account search rate limit and window must be positive integers.')
+if min(ACCOUNT_SEARCH_RATE_LIMIT, ACCOUNT_SEARCH_IP_RATE_LIMIT, ACCOUNT_SEARCH_WINDOW_SECONDS) < 1:
+    raise ImproperlyConfigured('Account search rate limits and window must be positive integers.')
 WIRE_RESULT_ACCESS_SECONDS = 15 * 60
 WIRE_RESULT_VIEW_LIMIT = int(environ.get('WIRE_RESULT_VIEW_LIMIT', '30'))
 if WIRE_RESULT_VIEW_LIMIT < 1:
@@ -215,6 +216,16 @@ if LOGIN_RATE_LIMIT < 1 or LOGIN_RATE_WINDOW_SECONDS < 1:
 LOGIN_TRUSTED_PROXY_IPS = {
     address.strip() for address in environ.get('LOGIN_TRUSTED_PROXY_IPS', '').split(',') if address.strip()
 }
+REGISTER_ATTEMPT_LIMIT = int(environ.get('REGISTER_ATTEMPT_LIMIT', '10'))
+REGISTER_ATTEMPT_WINDOW_SECONDS = int(environ.get('REGISTER_ATTEMPT_WINDOW_SECONDS', '3600'))
+REGISTER_SUCCESS_LIMIT = int(environ.get('REGISTER_SUCCESS_LIMIT', '3'))
+REGISTER_SUCCESS_WINDOW_SECONDS = int(environ.get('REGISTER_SUCCESS_WINDOW_SECONDS', '86400'))
+if min(REGISTER_ATTEMPT_LIMIT, REGISTER_ATTEMPT_WINDOW_SECONDS, REGISTER_SUCCESS_LIMIT, REGISTER_SUCCESS_WINDOW_SECONDS) < 1:
+    raise ImproperlyConfigured('Registration rate limits and windows must be positive integers.')
+PUBLIC_PROCESSING_RATE_LIMIT = int(environ.get('PUBLIC_PROCESSING_RATE_LIMIT', '60'))
+PUBLIC_PROCESSING_WINDOW_SECONDS = int(environ.get('PUBLIC_PROCESSING_WINDOW_SECONDS', '900'))
+if min(PUBLIC_PROCESSING_RATE_LIMIT, PUBLIC_PROCESSING_WINDOW_SECONDS) < 1:
+    raise ImproperlyConfigured('Public processing rate limit and window must be positive integers.')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

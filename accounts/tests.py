@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from django.test import RequestFactory
 from .models import MembershipTier, MonthlyUsage, UserMembership
-from .models import PlanPurchase, LoginRateWindow
+from .models import PlanPurchase, LoginRateWindow, RegistrationRateWindow
 from .quotas import consume_quota, quota_status
 from .quotas import membership_for
 from .purchase_review import one_month_later
@@ -510,6 +510,53 @@ class LoginRateLimitTests(TestCase):
             self.assertEqual(Client().get(self.url).status_code, 200)
         with patch('accounts.rate_limit.timezone.now', return_value=start + timedelta(seconds=60)):
             self.assertEqual(Client().post(self.url, self.credentials).status_code, 302)
+
+
+class RegistrationRateLimitTests(TestCase):
+    url = '/accounts/register/'
+
+    @staticmethod
+    def signup_data(number):
+        return {
+            'username': f'new-member-{number}',
+            'email': f'new-member-{number}@example.com',
+            'password': 'SecurePassword987!',
+            'confirm_password': 'SecurePassword987!',
+        }
+
+    @override_settings(REGISTER_ATTEMPT_LIMIT=2)
+    def test_registration_attempts_are_limited_by_ip_and_ignore_spoofed_headers(self):
+        for forwarded in ('198.51.100.10', '198.51.100.11'):
+            response = Client().post(self.url, {'username': 'invalid'},
+                                     REMOTE_ADDR='203.0.113.1', HTTP_X_FORWARDED_FOR=forwarded)
+            self.assertEqual(response.status_code, 200)
+        blocked = Client().post(self.url, self.signup_data(1), REMOTE_ADDR='203.0.113.1')
+        self.assertContains(blocked, 'Too many registration attempts', status_code=429)
+        self.assertGreater(int(blocked['Retry-After']), 0)
+        self.assertIn('no-store', blocked['Cache-Control'])
+        self.assertFalse(User.objects.filter(username='new-member-1').exists())
+        self.assertEqual(Client().post(self.url, self.signup_data(2), REMOTE_ADDR='203.0.113.2').status_code, 302)
+        self.assertNotIn('203.0.113.1', RegistrationRateWindow.objects.first().lookup_key)
+
+    @override_settings(REGISTER_SUCCESS_LIMIT=2)
+    def test_created_accounts_are_limited_separately_from_invalid_forms(self):
+        for number in (1, 2):
+            response = Client().post(self.url, self.signup_data(number), REMOTE_ADDR='203.0.113.3')
+            self.assertEqual(response.status_code, 302)
+        blocked = Client().post(self.url, self.signup_data(3), REMOTE_ADDR='203.0.113.3')
+        self.assertContains(blocked, 'Too many accounts have been created', status_code=429)
+        self.assertFalse(User.objects.filter(username='new-member-3').exists())
+        self.assertEqual(Client().post(self.url, self.signup_data(4), REMOTE_ADDR='203.0.113.4').status_code, 302)
+
+    @override_settings(REGISTER_ATTEMPT_LIMIT=1, LOGIN_TRUSTED_PROXY_IPS={'10.0.0.1'})
+    def test_trusted_proxy_keeps_registration_limits_separate_per_client_ip(self):
+        for forwarded in ('198.51.100.20', '198.51.100.21'):
+            response = Client().post(self.url, {'username': 'invalid'},
+                                     REMOTE_ADDR='10.0.0.1', HTTP_X_FORWARDED_FOR=forwarded)
+            self.assertEqual(response.status_code, 200)
+        blocked = Client().post(self.url, self.signup_data(5),
+                                REMOTE_ADDR='10.0.0.1', HTTP_X_FORWARDED_FOR='198.51.100.20')
+        self.assertEqual(blocked.status_code, 429)
 
 
 class AccountsAuthTests(TestCase):

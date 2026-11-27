@@ -22,6 +22,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 from django.db.models import Q
+from django.db import transaction
 from django.core.paginator import Paginator
 
 from .forms import (
@@ -37,7 +38,7 @@ from .forms import (
 )
 from .models import MembershipTier, PlanPurchase
 from .purchase_review import review_purchase
-from .rate_limit import record_login_attempt
+from .rate_limit import record_login_attempt, record_registration_attempt, reserve_registration_success
 from .quotas import expire_memberships, limits_for, membership_for, quota_status, tier_for
 
 User = get_user_model()
@@ -128,8 +129,28 @@ def register_view(request):
 
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
+        allowed, retry_after = record_registration_attempt(request)
+        if not allowed:
+            response = render(request, 'accounts/register.html', {
+                'form': UserRegisterForm(), 'next': next_url,
+                'rate_limit_message': 'Too many registration attempts. Please try again later.',
+            }, status=429)
+            response['Retry-After'] = str(retry_after)
+            response['Cache-Control'] = 'private, no-store'
+            return response
         if form.is_valid():
-            user = form.save()
+            with transaction.atomic():
+                allowed, retry_after = reserve_registration_success(request)
+                if allowed:
+                    user = form.save()
+            if not allowed:
+                response = render(request, 'accounts/register.html', {
+                    'form': UserRegisterForm(), 'next': next_url,
+                    'rate_limit_message': 'Too many accounts have been created from this connection. Please try again later.',
+                }, status=429)
+                response['Retry-After'] = str(retry_after)
+                response['Cache-Control'] = 'private, no-store'
+                return response
             auth_login(request, user)
             messages.success(request, f"Welcome to Swifttrace, {user.first_name or user.username}! Your account is now active.")
             if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):

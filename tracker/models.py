@@ -257,10 +257,18 @@ class SearchRateWindow(models.Model):
 
 class AccountSearchAttempt(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    ip_lookup_key = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateTimeField(db_index=True)
 
     class Meta:
-        indexes = [models.Index(fields=['user', 'created_at'], name='acct_search_user_time_idx')]
+        indexes = [
+            models.Index(fields=['user', 'created_at'], name='acct_search_user_time_idx'),
+            models.Index(fields=['ip_lookup_key', 'created_at'], name='acct_search_ip_time_idx'),
+        ]
+
+
+class SearchIpRateLock(models.Model):
+    lookup_key = models.CharField(max_length=64, unique=True)
 
 
 class ResultViewWindow(models.Model):

@@ -13,6 +13,8 @@
     <div class="reference-card bg-white rounded-2xl shadow-sm border border-slate-200 p-8 relative">
         <div class="absolute top-0 left-8 right-8 h-1 bg-orange-500 rounded-t-2xl"></div>
 
+        {% if rate_limit_message or input_error %}<p class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{% if rate_limit_message %}{{ rate_limit_message }}{% else %}{{ input_error }}{% endif %}</p>{% endif %}
+
         <form method="POST" class="space-y-4">
             {% csrf_token %}
             <div>
@@ -23,6 +25,7 @@
                     <input
                         type="text"
                         name="iban"
+                        maxlength="128"
                         id="id_iban"
                         value="{{ iban_input }}"
                         placeholder="e.g. GB29NWBK60161331926819 or AE070331234567890123456"

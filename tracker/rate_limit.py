@@ -11,7 +11,7 @@ from django.db.models import F
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
-from .models import AccountSearchAttempt, ResultViewWindow, SearchRateWindow
+from .models import AccountSearchAttempt, ResultViewWindow, SearchIpRateLock, SearchRateWindow
 
 
 def get_client_ip(request, trusted_proxy_ips=None):
@@ -64,23 +64,32 @@ def record_search_attempt(request):
 
 
 def record_account_search_attempt(request):
-    """Limit signed-in accounts to a rolling window of search POSTs."""
+    """Limit signed-in search POSTs by both account and client IP."""
     now = timezone.now()
     window = timedelta(seconds=settings.ACCOUNT_SEARCH_WINDOW_SECONDS)
     cutoff = now - window
+    client_ip = get_client_ip(request)
+    ip_lookup_key = salted_hmac('signed-in-search-ip', client_ip, algorithm='sha256').hexdigest()
 
     if random.random() < 0.01:
         AccountSearchAttempt.objects.filter(created_at__lte=now - max(window, timedelta(days=1))).delete()
 
-    # Lock the user row so concurrent requests from the same account share one count.
+    # Lock the IP first, then the user, so concurrent accounts share one IP count.
     with transaction.atomic():
+        ip_lock, _ = SearchIpRateLock.objects.get_or_create(lookup_key=ip_lookup_key)
+        SearchIpRateLock.objects.select_for_update().get(pk=ip_lock.pk)
         get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        recent_ip = AccountSearchAttempt.objects.filter(ip_lookup_key=ip_lookup_key, created_at__gt=cutoff)
+        if recent_ip.count() >= settings.ACCOUNT_SEARCH_IP_RATE_LIMIT:
+            oldest = recent_ip.order_by('created_at').values_list('created_at', flat=True).first()
+            retry_after = max(1, ceil((oldest + window - now).total_seconds()))
+            return False, retry_after
         recent = AccountSearchAttempt.objects.filter(user_id=request.user.pk, created_at__gt=cutoff)
         if recent.count() >= settings.ACCOUNT_SEARCH_RATE_LIMIT:
             oldest = recent.order_by('created_at').values_list('created_at', flat=True).first()
             retry_after = max(1, ceil((oldest + window - now).total_seconds()))
             return False, retry_after
-        AccountSearchAttempt.objects.create(user_id=request.user.pk, created_at=now)
+        AccountSearchAttempt.objects.create(user_id=request.user.pk, ip_lookup_key=ip_lookup_key, created_at=now)
     return True, 0
 
 

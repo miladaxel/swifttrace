@@ -596,6 +596,17 @@ class PublicSearchPrivacyTests(TestCase):
         self.assertFalse(response_oversized.json()['success'])
         self.assertIn('2 MB or smaller', response_oversized.json()['error'])
 
+        for payload in ('[]', '{"raw_text": 42}', '{"raw_text": ""}'):
+            malformed = client.post(url, data=payload, content_type='application/json')
+            self.assertEqual(malformed.status_code, 400)
+        long_text = client.post(url, data='{"raw_text": "' + 'x' * (128 * 1024 + 1) + '"}',
+                                content_type='application/json')
+        self.assertEqual(long_text.status_code, 400)
+        self.assertIn('128 KB or smaller', long_text.json()['error'])
+        too_large_body = client.post(url, data='{"raw_text": "' + 'x' * (160 * 1024) + '"}',
+                                     content_type='application/json')
+        self.assertEqual(too_large_body.status_code, 413)
+
     def test_cleanup_expired_search_windows(self):
         from datetime import timedelta
         now = timezone.now()
@@ -809,6 +820,25 @@ class PublicSearchPrivacyTests(TestCase):
 
 
 class MembershipViewTests(TestCase):
+    @override_settings(ACCOUNT_SEARCH_RATE_LIMIT=5, ACCOUNT_SEARCH_IP_RATE_LIMIT=2)
+    def test_new_accounts_cannot_bypass_the_shared_ip_search_limit(self):
+        first = get_user_model().objects.create_user(username='ip-search-one', password='test-password')
+        second = get_user_model().objects.create_user(username='ip-search-two', password='test-password')
+        first_client = Client()
+        second_client = Client()
+        first_client.force_login(first)
+        second_client.force_login(second)
+        search_url = reverse('tracker:wire_transfer')
+        missing = {'uetr': 'd1f2a3b4-5c6d-7e8f-9a0b-1c2d3e4f5a6b', 'consent': 'on'}
+        self.assertEqual(first_client.post(search_url, missing, REMOTE_ADDR='198.51.100.10').status_code, 200)
+        self.assertEqual(second_client.post(search_url, missing, REMOTE_ADDR='198.51.100.10').status_code, 200)
+        blocked = second_client.post(search_url, missing, REMOTE_ADDR='198.51.100.10')
+        self.assertEqual(blocked.status_code, 429)
+        self.assertGreater(int(blocked['Retry-After']), 0)
+        self.assertEqual(second_client.post(search_url, missing, REMOTE_ADDR='198.51.100.11').status_code, 200)
+        self.assertEqual(AccountSearchAttempt.objects.filter(user=second).count(), 2)
+        self.assertFalse(MonthlyUsage.objects.exists())
+
     @override_settings(ACCOUNT_SEARCH_RATE_LIMIT=2, ACCOUNT_SEARCH_WINDOW_SECONDS=3600)
     def test_account_search_requests_are_limited_across_ips_for_a_rolling_hour(self):
         user = get_user_model().objects.create_user(username='hourly-search-user', password='test-password')

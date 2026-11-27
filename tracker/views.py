@@ -1,4 +1,3 @@
-import json
 from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -17,6 +16,8 @@ from .rate_limit import (
     record_account_search_attempt, record_result_view, record_search_attempt,
     start_result_view_window,
 )
+from tools.api_input import MAX_MT103_JSON_BODY_BYTES, MAX_MT103_TEXT_LENGTH, PayloadTooLarge, read_api_data
+from tools.rate_limit import limit_public_api
 from accounts.quotas import consume_quota
 
 
@@ -236,6 +237,7 @@ def download_transfer_statement(request, transfer_id):
 
 
 @csrf_exempt
+@limit_public_api
 def parse_mt103_api(request):
     """
     Extract selected fields from MT103-like text. No authenticity check is made.
@@ -250,15 +252,21 @@ def parse_mt103_api(request):
                 return JsonResponse({'success': False, 'error': 'Uploaded file must be 2 MB or smaller.'}, status=400)
             try:
                 raw_text = uploaded_file.read().decode('utf-8', errors='ignore')
-            except Exception as e:
-                return JsonResponse({'success': False, 'error': f"Failed to read file: {str(e)}"}, status=400)
+            except (OSError, UnicodeError):
+                return JsonResponse({'success': False, 'error': 'Failed to read file.'}, status=400)
         else:
             try:
-                data = json.loads(request.body.decode('utf-8'))
-                raw_text = data.get('raw_text', '')
-            except Exception:
-                raw_text = request.POST.get('raw_text', '')
+                data = read_api_data(request, MAX_MT103_JSON_BODY_BYTES)
+            except PayloadTooLarge:
+                return JsonResponse({'success': False, 'error': 'Request body is too large.'}, status=413)
+            if data is None:
+                return JsonResponse({'success': False, 'error': 'Expected a JSON object or form fields.'}, status=400)
+            raw_text = data.get('raw_text', '')
 
+        if not isinstance(raw_text, str):
+            return JsonResponse({'success': False, 'error': 'MT103 text must be a string.'}, status=400)
+        if len(raw_text) > MAX_MT103_TEXT_LENGTH:
+            return JsonResponse({'success': False, 'error': 'MT103 text must be 128 KB or smaller.'}, status=400)
         if not raw_text.strip():
             return JsonResponse({'success': False, 'error': 'No MT103 text provided.'}, status=400)
 

@@ -1,7 +1,9 @@
-import json
+from math import isfinite
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from .api_input import MAX_IBAN_LENGTH, MAX_NAME_LENGTH, MAX_SMALL_API_BODY_BYTES, PayloadTooLarge, read_api_data
+from .rate_limit import limit_public_api, record_public_processing_attempt
 from .services import IBANValidatorService, SanctionsScreenerService
 
 
@@ -38,7 +40,19 @@ def iban_validator_view(request):
     result = None
     iban_input = ''
     if request.method == 'POST':
+        allowed, retry_after = record_public_processing_attempt(request)
+        if not allowed:
+            response = render(request, 'tools/iban_validator.html', {
+                'iban_input': '', 'rate_limit_message': 'Too many requests. Please try again later.',
+            }, status=429)
+            response['Retry-After'] = str(retry_after)
+            response['Cache-Control'] = 'private, no-store'
+            return response
         iban_input = request.POST.get('iban', '').strip()
+        if len(iban_input) > MAX_IBAN_LENGTH:
+            return render(request, 'tools/iban_validator.html', {
+                'iban_input': '', 'input_error': 'IBAN input is too long.',
+            }, status=400)
         if iban_input:
             result = IBANValidatorService.validate(iban_input)
 
@@ -52,7 +66,19 @@ def sanctions_screener_view(request):
     result = None
     query = ''
     if request.method == 'POST':
+        allowed, retry_after = record_public_processing_attempt(request)
+        if not allowed:
+            response = render(request, 'tools/sanctions_screener.html', {
+                'query': '', 'rate_limit_message': 'Too many requests. Please try again later.',
+            }, status=429)
+            response['Retry-After'] = str(retry_after)
+            response['Cache-Control'] = 'private, no-store'
+            return response
         query = request.POST.get('query', '').strip()
+        if len(query) > MAX_NAME_LENGTH:
+            return render(request, 'tools/sanctions_screener.html', {
+                'query': '', 'input_error': 'Name input is too long.',
+            }, status=400)
         if query:
             result = SanctionsScreenerService.screen(query)
 
@@ -98,14 +124,18 @@ def document_validator_view(request):
 
 
 @csrf_exempt
+@limit_public_api
 def api_validate_iban(request):
     if request.method == 'POST':
         try:
-            data = json.loads(request.body.decode('utf-8'))
-        except Exception:
-            data = request.POST
-        
+            data = read_api_data(request, MAX_SMALL_API_BODY_BYTES)
+        except PayloadTooLarge:
+            return JsonResponse({'error': 'Request body is too large.'}, status=413)
+        if data is None:
+            return JsonResponse({'error': 'Expected a JSON object or form fields.'}, status=400)
         iban = data.get('iban', '')
+        if not isinstance(iban, str) or len(iban) > MAX_IBAN_LENGTH:
+            return JsonResponse({'error': 'IBAN must be text of 128 characters or fewer.'}, status=400)
         result = IBANValidatorService.validate(iban)
         return JsonResponse(result)
 
@@ -113,19 +143,23 @@ def api_validate_iban(request):
 
 
 @csrf_exempt
+@limit_public_api
 def api_screen_sanctions(request):
     if request.method == 'POST':
         try:
-            data = json.loads(request.body.decode('utf-8'))
-        except Exception:
-            data = request.POST
-        
+            data = read_api_data(request, MAX_SMALL_API_BODY_BYTES)
+        except PayloadTooLarge:
+            return JsonResponse({'error': 'Request body is too large.'}, status=413)
+        if data is None:
+            return JsonResponse({'error': 'Expected a JSON object or form fields.'}, status=400)
         query = data.get('query', '')
+        if not isinstance(query, str) or len(query) > MAX_NAME_LENGTH:
+            return JsonResponse({'error': 'Query must be text of 128 characters or fewer.'}, status=400)
         try:
             threshold = float(data.get('threshold', 0.65))
         except (ValueError, TypeError):
             threshold = 0.65
-        threshold = max(0.0, min(1.0, threshold))
+        threshold = max(0.0, min(1.0, threshold)) if isfinite(threshold) else 0.65
         result = SanctionsScreenerService.screen(query, threshold)
         return JsonResponse(result)
 
